@@ -17,23 +17,23 @@ import time
 import glob
 
 
-class Test(object):
-    r"""Base object for all tests 
+class Job(object):
+    r"""Base object for all jobs 
 
     The ``type``, ``name``, and ``prefix`` attributes are used by the 
-    :class:`TestController` to create the path to the output files along with 
+    :class:`BatchController` to create the path to the output files along with 
     the name of the output directories and log file.  The pattern is 
-    ``base_path/type/name/prefix*``.  See :class:`TestController` for more 
+    ``base_path/type/name/prefix*``.  See :class:`BatchController` for more 
     information on how these are created.
 
     .. attribute:: type
 
-        (string) - The top most directory that the test output will be 
+        (string) - The top most directory that the batch output will be 
         located in.  ``default = ""``.
     
     .. attribute:: name
 
-        (string) - The second top most directory that the test output will
+        (string) - The second top most directory that the batch output will
         be located in.  ``default = ""``.
     
     .. attribute:: prefix
@@ -61,17 +61,17 @@ class Test(object):
     :Initialization:
 
     Output:
-     - (:class:`Test`) - Initialized Test object.
+     - (:class:`Job`) - Initialized Job object.
     """
 
     def __init__(self):
         r"""
-        Initialize a TestController object
+        Initialize a Job object
         
-        See :class:`TestController` for full documentation
+        See :class:`Job` for full documentation
         """ 
 
-        # Base test traits
+        # Base job traits
         self.type = ""
         self.name = ""
         self.setplot = "setplot"
@@ -82,7 +82,7 @@ class Test(object):
         
 
     def __str__(self):
-        output = "Test %s: %s" % (self.name,self.prefix)
+        output = "Job %s: %s" % (self.name,self.prefix)
         output += "\n  Setplot: %s" % self.setplot
         return output
     
@@ -101,21 +101,21 @@ class Test(object):
 
   
 
-class TestController(object):
+class BatchController(object):
     r"""
-    Controller for Clawpack test runs
+    Controller for Clawpack batch runs
 
-    Controller object that will run the set of tests provided with the
+    Controller object that will run the set of jobs provided with the
     parameters set in the object including plotting, path creation, and 
     simple process parallelism.
 
-    .. attribute:: tests 
+    .. attribute:: jobs 
 
-        (list) - List of :class:`Test` objects that will be run.
+        (list) - List of :class:`Job` objects that will be run.
 
     .. attribute:: plot 
 
-        (bool) - If True each test will be plotted after it has run.  
+        (bool) - If True each job will be plotted after it has run.  
         ``default = True``
 
     .. attribute:: tar
@@ -125,8 +125,8 @@ class TestController(object):
 
     .. attribute:: verbose
 
-        (bool) - If True will print to stdout the remaining tests 
-        waiting to be run and how many are in currently in the process queue.
+        (bool) - If True will print to stdout the remaining jobs 
+        waiting to be run and how many are currently in the process queue.
         ``default = False``.
 
     .. attribute:: terminal_output
@@ -144,21 +144,21 @@ class TestController(object):
 
     .. attribute:: parallel
 
-        (bool) - If True, tests will be run in parallel.  This means
-        that tests will be run concurrently with other tests up to a maximum at
+        (bool) - If True, jobs will be run in parallel.  This means
+        that jobs will be run concurrently with other jobs up to a maximum at
         one time of ``max_processes``.  Once a process completes a new one is 
         started.  ``default = True``.
 
     .. attribute:: wait
 
-        (bool) - If True, the method waits to return until the last test
+        (bool) - If True, the method waits to return until the last job
         has completed.  If False then the method returns immediately once the 
-        last test has been added to the process queue.  Default is `False`.
+        last job has been added to the process queue.  Default is `False`.
 
     .. attribute:: poll_interval
 
         (float) - Interval to poll for the status of each 
-        processes.  Default is `5.0` seconds.
+        process.  Default is `5.0` seconds.
 
     .. attribute:: max_processes
 
@@ -181,21 +181,21 @@ class TestController(object):
     :Initialization:
 
     Input:
-     - *tests* - (list) List of :class:`Test` objects to be run.
+     - *jobs* - (list) List of :class:`Job` objects to be run.
 
     Output:
-     - (:class:`TestController`) Initialized TestController object
+     - (:class:`BatchController`) Initialized BatchController object
 
     """
 
-    def __init__(self, tests=[]):
+    def __init__(self, jobs=[]):
         r"""
-        Initialize a TestController object
+        Initialize a BatchController object
         
-        See :class:`TestController` for full documentation
+        See :class:`BatchController` for full documentation
         """ 
 
-        super(TestController, self).__init__()
+        super(BatchController, self).__init__()
 
         # Establish controller default parameters
         # Execution controls
@@ -226,73 +226,73 @@ class TestController(object):
         self.runclaw_cmd = "python $CLAW/clawutil/src/python/clawutil/runclaw.py"
         self.plotclaw_cmd = "python $CLAW/visclaw/src/python/visclaw/plotclaw.py"
 
-        # Add the initial tests to the tests list
-        if not isinstance(tests, list) and not isinstance(tests, tuple):
-            raise ValueError("Tests must be a list or tuple.")
-        self.tests = []
-        for test in tests:
-            if isinstance(test, Test):
-                self.tests.append(test)
+        # Add the initial jobs to the jobs list
+        if not isinstance(jobs, list) and not isinstance(jobs, tuple):
+            raise ValueError("Jobs must be a list or tuple.")
+        self.jobs = []
+        for job in jobs:
+            if isinstance(job, Job):
+                self.jobs.append(job)
             else:
-                raise ValueError("Elements of tests must be a Test.")
+                raise ValueError("Elements of jobs must be a Job.")
 
 
     def __str__(self):
         output = ""
-        for (i,test) in enumerate(self.tests):
-            output += "====== Test #%s ============================\n" % (i)
-            output += str(test) + "\n"
+        for (i,job) in enumerate(self.jobs):
+            output += "====== Job #%s ============================\n" % (i)
+            output += str(job) + "\n"
         return output
 
 
     def run(self):
-        r"""Run tests from controllers *tests* list.
+        r"""Run jobs from controller's *jobs* list.
 
-        For each Test object in *tests* create a set of paths, directory
+        For each :class:`Job` object in *jobs* create a set of paths, directory
         structures, and log files in preperation for running the commands
-        constructed.  If *parallel* is True then tests are started and added
+        constructed.  If *parallel* is True then jobs are started and added
         to a queue with a maximum of *maximum_processes*.  If *parallel* is 
-        False each test is run to completion before continuing.  The *wait*
-        parameter controls whether the function waits for the last test to run
+        False each job is run to completion before continuing.  The *wait*
+        parameter controls whether the function waits for the last job to run
         before returning.
 
         Output:
          - *paths* - (list) List of dictionaries containing paths to the data
-           constructed for each test. The dictionary has keys 'test', 'data', 
+           constructed for each job. The dictionary has keys 'job', 'data', 
            'output', 'plots', and 'log' which respectively stores the base 
-           directory of the test, the data, output, and plot directories, and
+           directory of the job, the data, output, and plot directories, and
            the log file.
         """
         
-        # Run tests
+        # Run jobs
         paths = []
-        for (i,test) in enumerate(self.tests):
+        for (i,job) in enumerate(self.jobs):
             # Create output directory
-            data_dirname = ''.join((test.prefix,'_data'))
-            output_dirname = ''.join((test.prefix,"_output"))
-            plots_dirname = ''.join((test.prefix,"_plots"))
-            log_name = ''.join((test.prefix,"_log.txt"))
+            data_dirname = ''.join((job.prefix,'_data'))
+            output_dirname = ''.join((job.prefix,"_output"))
+            plots_dirname = ''.join((job.prefix,"_plots"))
+            log_name = ''.join((job.prefix,"_log.txt"))
             
-            if len(test.type) > 0:
-                test_path = os.path.join(self.base_path,test.type,test.name)
+            if len(job.type) > 0:
+                job_path = os.path.join(self.base_path,job.type,job.name)
             else:
-                test_path = os.path.join(self.base_path,test.name)
-            test_path = os.path.abspath(test_path)
-            data_path = os.path.join(test_path,data_dirname)
-            output_path = os.path.join(test_path,output_dirname)
-            plots_path = os.path.join(test_path,plots_dirname)
-            log_path = os.path.join(test_path,log_name)
-            paths.append({'test':test_path, 'data':data_path,
+                job_path = os.path.join(self.base_path,job.name)
+            job_path = os.path.abspath(job_path)
+            data_path = os.path.join(job_path,data_dirname)
+            output_path = os.path.join(job_path,output_dirname)
+            plots_path = os.path.join(job_path,plots_dirname)
+            log_path = os.path.join(job_path,log_name)
+            paths.append({'job':job_path, 'data':data_path,
                           'output':output_path, 'plots':plots_path,
                           'log':log_path})
 
-            # Create test directory if not present
-            if not os.path.exists(test_path):
-                os.makedirs(test_path)
+            # Create job directory if not present
+            if not os.path.exists(job_path):
+                os.makedirs(job_path)
 
             # Clobber old data directory
             if os.path.exists(data_path):
-                if not test.rundata.clawdata.restart:
+                if not job.rundata.clawdata.restart:
                     data_files = glob.glob(os.path.join(data_path,'*.data'))
                     for data_file in data_files:
                         os.remove(data_file)
@@ -314,24 +314,22 @@ class TestController(object):
             # Write out data
             temp_path = os.getcwd()
             os.chdir(data_path)
-            test.write_data_objects()
+            job.write_data_objects()
             os.chdir(temp_path)
 
             # Handle restart requests
-            if test.rundata.clawdata.restart:
+            if job.rundata.clawdata.restart:
                 restart = "T"
                 overwrite = "F"
             else:
                 restart = "F"
-                overwrite = "T"
-
-            
+                overwrite = "T"            
             
             # Construct string commands
-            run_cmd = "%s %s %s %s %s %s True" % (self.runclaw_cmd, test.executable, output_path,
+            run_cmd = "%s %s %s %s %s %s True" % (self.runclaw_cmd, job.executable, output_path,
                                                       overwrite, restart, data_path)
             plot_cmd = "%s %s %s %s" % (self.plotclaw_cmd, output_path, plots_path, 
-                                                                       test.setplot)
+                                                                       job.setplot)
             tar_cmd = "tar -cvzf %s.tgz -C %s/.. %s" % (plots_path, plots_path, os.path.basename(plots_path))
             cmd = run_cmd
             if self.plot:
@@ -339,7 +337,7 @@ class TestController(object):
                 if self.tar:
                     cmd = ";".join((cmd,tar_cmd))
             
-            # Run test
+            # Run jobs
             if self.parallel:
                 while len(self._process_queue) == self.max_processes:
                     if self.verbose:
@@ -360,7 +358,7 @@ class TestController(object):
                     subprocess.Popen(cmd,shell=True,stdout=log_file,
                         stderr=log_file).wait()
 
-        # -- All tests have been started --
+        # -- All jobs have been started --
 
         # Wait to exit while processes are still going
         if self.wait:
