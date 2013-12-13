@@ -6,9 +6,8 @@ Includes support for multiple runs at the same time
 # ============================================================================
 #      Copyright (C) 2013 Kyle Mandli <kyle@ices.utexas.edu>
 #
-#  Distributed under the terms of the Berkeley Software Distribution (BSD) 
-#  license
-#                     http://www.opensource.org/licenses/
+#          Distributed under the terms of the MIT license
+#                http://www.opensource.org/licenses/
 # ============================================================================
 
 import subprocess
@@ -71,6 +70,8 @@ class Job(object):
         See :class:`Job` for full documentation
         """ 
 
+        super(Job, self).__init__()
+
         # Base job traits
         self.type = ""
         self.name = ""
@@ -99,7 +100,7 @@ class Job(object):
             raise ValueError("Must set rundata to a ClawRunData object.")
         self.rundata.write()
 
-  
+
 
 class BatchController(object):
     r"""
@@ -203,7 +204,6 @@ class BatchController(object):
         self.tar = False
         self.verbose = False
         self.terminal_output = False
-        self.data_files = "*.data"
 
         # Path controls
         if os.environ.has_key('DATA_PATH'):
@@ -293,7 +293,7 @@ class BatchController(object):
             # Clobber old data directory
             if os.path.exists(data_path):
                 if not job.rundata.clawdata.restart:
-                    data_files = glob.glob(os.path.join(data_path,'*.data'))
+                    data_files = glob.glob(os.path.join(data_path, "*.data"))
                     for data_file in data_files:
                         os.remove(data_file)
             else:
