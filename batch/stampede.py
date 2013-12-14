@@ -142,6 +142,7 @@ class StampedeBatchController(batch.BatchController):
             run_script.write("\n")
             run_script.write("# OpenMP controls\n")
             run_script.write("export OMP_NUM_THREADS=%s\n" % job.omp_num_threads)
+            run_script.write("export MIC_ENV_PREFIX=MIC")
             run_script.write("export MIC_OMP_NUM_THREADS=%s\n" % job.mic_omp_num_threads)
             run_script.write("\n")
             run_script.write("# Run command\n")
@@ -150,7 +151,7 @@ class StampedeBatchController(batch.BatchController):
             run_script.close()
 
             # Submit job to queue
-            subprocess.Popen(run_script_path, shell=True)
+            subprocess.Popen("sbatch %s" % run_script_path, shell=True)
 
         # -- All jobs have been started --
             
