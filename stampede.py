@@ -13,6 +13,28 @@ import subprocess
 
 import batch
 
+class StampedeJob(batch.Job):
+    r"""
+    Modifications to the basic :class:`batch.Job` class for Stampede runs
+
+    """
+
+    def __init__(self):
+        r"""
+        Initialize Stampede job
+
+        See :class:`StampedeJob` for full documentation
+        """
+
+        super(StampedeJob, self).__init__()
+
+        # Add extra job parameters
+        self.omp_num_threads = 1
+        self.mic_omp_num_threads = 1
+        self.time = "12:00:00"
+        self.queue = "serial"
+
+
 class StampedeBatchController(batch.BatchController):
     r"""
     Modifications to the basic batch controller for Stampede runs
@@ -35,11 +57,7 @@ class StampedeBatchController(batch.BatchController):
         super(StampedeBatchController, self).__init__(jobs)
 
         # Stampede specific execution controls
-        self.queue = "serial"
-        self.time = "12:00:00"
         self.email = None
-        self.omp_num_threads = 1
-        self.mic_omp_num_threads = 1
 
     def run(self):
         r"""Run Stampede jobs from controller's *jobs* list.
@@ -115,7 +133,7 @@ class StampedeBatchController(batch.BatchController):
             run_script.write("#SBATCH -o %s        # Job name\n" % log_path)
             run_script.write("#SBATCH -n 1         # Total number of MPI tasks requested\n")
             run_script.write("#SBATCH -N 1         # Total number of MPI tasks requested\n")
-            run_script.write("#SBATCH -p %s               # queue\n" % self.queue)
+            run_script.write("#SBATCH -p %s               # queue\n" % job.queue)
             run_script.write("#SBATCH -t 9:00:00             # run time (hh:mm:ss)\n")
             if self.email is not None:
                 run_script.write("#SBATCH --mail-user=%s" % self.email)
@@ -123,8 +141,8 @@ class StampedeBatchController(batch.BatchController):
                 run_script.write("#SBATCH --mail-type=end         # email me when the job finishes\n")
             run_script.write("\n")
             run_script.write("# OpenMP controls\n")
-            run_script.write("export OMP_NUM_THREADS=%s\n" % self.omp_num_threads)
-            run_script.write("export MIC_OMP_NUM_THREADS=%s\n" % self.mic_omp_num_threads)
+            run_script.write("export OMP_NUM_THREADS=%s\n" % job.omp_num_threads)
+            run_script.write("export MIC_OMP_NUM_THREADS=%s\n" % job.mic_omp_num_threads)
             run_script.write("\n")
             run_script.write("# Run command\n")
             run_script.write(run_cmd)
