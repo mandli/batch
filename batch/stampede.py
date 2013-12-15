@@ -151,7 +151,7 @@ class StampedeBatchController(batch.BatchController):
             run_script.close()
 
             # Submit job to queue
-            subprocess.Popen("sbatch %s" % run_script_path, shell=True)
+            subprocess.Popen("sbatch %s" % run_script_path, shell=True).wait()
 
         # -- All jobs have been started --
             
