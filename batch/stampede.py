@@ -31,6 +31,7 @@ class StampedeJob(batch.Job):
         # Add extra job parameters
         self.omp_num_threads = 1
         self.mic_omp_num_threads = 1
+        self.mic_affinity = "none"
         self.time = "12:00:00"
         self.queue = "serial"
 
@@ -144,6 +145,7 @@ class StampedeBatchController(batch.BatchController):
             run_script.write("export OMP_NUM_THREADS=%s\n" % job.omp_num_threads)
             run_script.write("export MIC_ENV_PREFIX=MIC")
             run_script.write("export MIC_OMP_NUM_THREADS=%s\n" % job.mic_omp_num_threads)
+            run_script.write("export MIC_KMP_AFFINITY=%s\n" % job.mic_affinity)
             run_script.write("\n")
             run_script.write("# Run command\n")
             run_script.write(run_cmd)
@@ -151,7 +153,7 @@ class StampedeBatchController(batch.BatchController):
             run_script.close()
 
             # Submit job to queue
-            subprocess.Popen("sbatch %s" % run_script_path, shell=True).wait()
+            subprocess.Popen("sbatch %s > %s" % (run_script_path,log_path), shell=True).wait()
 
         # -- All jobs have been started --
             
