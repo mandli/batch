@@ -83,8 +83,8 @@ class Job(object):
         
 
     def __str__(self):
-        output = "Job %s: %s" % (self.name,self.prefix)
-        output += "\n  Setplot: %s" % self.setplot
+        output = "Job %s: %s\n" % (self.name,self.prefix)
+        output += "  Setplot: %s\n" % self.setplot
         return output
     
         
@@ -103,8 +103,8 @@ class Job(object):
 
 
 class BatchController(object):
-    r"""
-    Controller for Clawpack batch runs
+    
+    r"""Controller for Clawpack batch runs.
 
     Controller object that will run the set of jobs provided with the
     parameters set in the object including plotting, path creation, and 
@@ -190,10 +190,10 @@ class BatchController(object):
     """
 
     def __init__(self, jobs=[]):
-        r"""
-        Initialize a BatchController object
+        r"""Initialize a BatchController object.
         
         See :class:`BatchController` for full documentation
+
         """ 
 
         super(BatchController, self).__init__()
@@ -262,6 +262,7 @@ class BatchController(object):
            'output', 'plots', and 'log' which respectively stores the base 
            directory of the job, the data, output, and plot directories, and
            the log file.
+
         """
         
         # Run jobs
@@ -343,7 +344,7 @@ class BatchController(object):
                     if self.verbose:
                         print "Number of processes currently:",len(self._process_queue)
                     for process in self._process_queue:
-                        if process.poll() == 0:
+                        if process.poll() is not None:
                             self._process_queue.remove(process)
                     time.sleep(self.poll_interval)
                 self._process_queue.append(subprocess.Popen(cmd,shell=True,
@@ -365,7 +366,7 @@ class BatchController(object):
             while len(self._process_queue) > 0:
                 time.sleep(self.poll_interval)
                 for process in self._process_queue:
-                    if process.poll() == 0:
+                    if process.poll() is not None:
                         self._process_queue.remove(process)
                 print "Number of processes currently:",len(self._process_queue)
             
