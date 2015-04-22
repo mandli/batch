@@ -142,7 +142,7 @@ class YetiBatchController(batch.BatchController):
             run_script.write("#PBS -N %s        # Job name\n" % job.prefix)
             run_script.write("#PBS -W group_list=%s        # Group\n" % job.group)
             run_script.write("#PBS -l mem=%smb        # Memory\n" % job.memory)
-            run_script.write("#PBS -l walltime=00:%s:%s        # Memory\n" % (hours, minutes))
+            run_script.write("#PBS -l walltime=00:%s:%s:00        # Memory\n" % (hours, minutes))
             run_script.write("#PBS -l nodes=%s:ppn=%s         # Nodes and processers per node\n" % (job.nodes, job.omp_num_threads))
             run_script.write("#PBS -V    # export env. variables to the job")
             if self.email is not None:
