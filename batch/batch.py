@@ -245,7 +245,7 @@ class BatchController(object):
         return output
 
 
-    def run(self):
+    def run(self, only_write_data=False):
         r"""Run jobs from controller's *jobs* list.
 
         For each :class:`Job` object in *jobs* create a set of paths, directory
@@ -317,6 +317,9 @@ class BatchController(object):
             os.chdir(data_path)
             job.write_data_objects()
             os.chdir(temp_path)
+
+            if only_write_data:
+                continue
 
             # Handle restart requests
             if job.rundata.clawdata.restart:
