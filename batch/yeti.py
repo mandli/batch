@@ -21,7 +21,8 @@ class YetiJob(batch.Job):
 
     """
 
-    def __init__(self, memory=4096, time=60, nodes=1, omp_num_threads=1):
+    def __init__(self, use_v2=True, memory=4096, time=60, nodes=1,
+                       omp_num_threads=1):
         r"""
         Initialize Yeti job
 
@@ -37,6 +38,7 @@ class YetiJob(batch.Job):
         self.memory = memory
         self.time = time
         self.nodes = nodes
+        self.use_v2 = use_v2
         
         self.group = None # needs to be set at some point
 
@@ -143,7 +145,10 @@ class YetiBatchController(batch.BatchController):
             run_script.write("#PBS -W group_list=%s        # Group\n" % job.group)
             run_script.write("#PBS -l mem=%smb        # Memory\n" % job.memory)
             run_script.write("#PBS -l walltime=00:%s:%s:00        # Memory\n" % (hours, minutes))
-            run_script.write("#PBS -l nodes=%s:ppn=%s         # Nodes and processers per node\n" % (job.nodes, job.omp_num_threads))
+            if job.use_v2:
+                run_script.write("#PBS -l nodes=%s:ppn=%s:v2         # Nodes and processers per node\n" % (job.nodes, job.omp_num_threads))
+            else:
+                run_script.write("#PBS -l nodes=%s:ppn=%s:v2         # Nodes and processers per node\n" % (job.nodes, job.omp_num_threads))
             run_script.write("#PBS -V    # export env. variables to the job")
             if self.email is not None:
                 run_script.write("#PBS -M %s\n" % self.email)
