@@ -15,7 +15,7 @@ import subprocess
 
 import batch
 
-class YetiJob(batch.Job):
+class Job(batch.Job):
     r"""
     Modifications to the basic :class:`batch.Job` class for Yeti runs
 
@@ -29,7 +29,7 @@ class YetiJob(batch.Job):
         See :class:`YetiJob` for full documentation
         """
 
-        super(YetiJob, self).__init__()
+        super(Job, self).__init__()
 
         # Add extra job parameters
         self.omp_num_threads = omp_num_threads
@@ -43,7 +43,7 @@ class YetiJob(batch.Job):
         self.group = None # needs to be set at some point
 
 
-class YetiBatchController(batch.BatchController):
+class BatchController(batch.BatchController):
     r"""
     Modifications to the basic batch controller for Yeti runs
 
@@ -62,7 +62,7 @@ class YetiBatchController(batch.BatchController):
         See :class:`YetiBatchController` for full documentation
         """
 
-        super(YetiBatchController, self).__init__(jobs)
+        super(BatchController, self).__init__(jobs)
 
         # Yeti specific execution controls
         self.email = email
@@ -149,7 +149,7 @@ class YetiBatchController(batch.BatchController):
                 run_script.write("#PBS -l nodes=%s:ppn=%s:v2         # Nodes and processers per node\n" % (job.nodes, job.omp_num_threads))
             else:
                 run_script.write("#PBS -l nodes=%s:ppn=%s:v2         # Nodes and processers per node\n" % (job.nodes, job.omp_num_threads))
-            run_script.write("#PBS -V    # export env. variables to the job")
+            run_script.write("#PBS -V    # export env. variables to the job\n")
             if self.email is not None:
                 run_script.write("#PBS -M %s\n" % self.email)
                 run_script.write("#PBS -m abe    # email for abort, begin, end\n")
