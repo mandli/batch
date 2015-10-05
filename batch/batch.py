@@ -332,7 +332,8 @@ class BatchController(object):
             # Construct string commands
             run_cmd = "%s %s %s %s %s %s True" % (self.runclaw_cmd, job.executable, output_path,
                                                       overwrite, restart, data_path)
-            plot_cmd = "%s %s %s %s" % (self.plotclaw_cmd, output_path, plots_path, 
+            if self.plot:
+                plot_cmd = "%s %s %s %s" % (self.plotclaw_cmd, output_path, plots_path, 
                                                                        job.setplot)
             tar_cmd = "tar -cvzf %s.tgz -C %s/.. %s" % (plots_path, plots_path, os.path.basename(plots_path))
             cmd = run_cmd
