@@ -55,7 +55,7 @@ class BatchController(batch.BatchController):
         *plot*, *terminal_output*, *wait*, *poll_interval*, *plotclaw_cmd*
     """
 
-    def __init__(self, jobs=[], email=None, output=None):
+    def __init__(self, jobs=[], email=None, email_behavior="abe", output=None):
         r"""
         Initialize Yeti batch controller
 
@@ -66,6 +66,7 @@ class BatchController(batch.BatchController):
 
         # Yeti specific execution controls
         self.email = email
+        self.email_behavior = email_behavior
         self.output = output
 
     def run(self):
@@ -152,7 +153,7 @@ class BatchController(batch.BatchController):
             run_script.write("#PBS -V    # export env. variables to the job\n")
             if self.email is not None:
                 run_script.write("#PBS -M %s\n" % self.email)
-                run_script.write("#PBS -m abe    # email for abort, begin, end\n")
+                run_script.write("#PBS -m %s    # email for abort, begin, end\n")
             if self.output is not None:
                 run_script.write("#PBS -o localhost:%s   # stdout\n" % self.output)
                 run_script.write("#PBS -e localhost:%s   # stderr\n" % self.output)
