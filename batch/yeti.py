@@ -68,6 +68,7 @@ class BatchController(batch.BatchController):
         self.email = email
         self.email_behavior = email_behavior
         self.output = output
+        self.queue = None
 
     def run(self):
         r"""Run Yeti jobs from controller's *jobs* list.
@@ -145,15 +146,17 @@ class BatchController(batch.BatchController):
             run_script.write("#PBS -N %s        # Job name\n" % job.prefix)
             run_script.write("#PBS -W group_list=%s        # Group\n" % job.group)
             run_script.write("#PBS -l mem=%smb        # Memory\n" % job.memory)
-            run_script.write("#PBS -l walltime=00:%s:%s:00        # Memory\n" % (hours, minutes))
+            run_script.write("#PBS -l walltime=00:%s:%s:00        # Walltime\n" % (hours, minutes))
             if job.use_v2:
                 run_script.write("#PBS -l nodes=%s:ppn=%s:v2         # Nodes and processers per node\n" % (job.nodes, job.omp_num_threads))
             else:
-                run_script.write("#PBS -l nodes=%s:ppn=%s:v2         # Nodes and processers per node\n" % (job.nodes, job.omp_num_threads))
+                run_script.write("#PBS -l nodes=%s:ppn=%s            # Nodes and processers per node\n" % (job.nodes, job.omp_num_threads))
             run_script.write("#PBS -V    # export env. variables to the job\n")
+            if self.queue is not None:
+                run_script.write("#PBS -q %s      # Requested queue\n" % self.queue)
             if self.email is not None:
                 run_script.write("#PBS -M %s\n" % self.email)
-                run_script.write("#PBS -m %s    # email for abort, begin, end\n")
+                run_script.write("#PBS -m %s # email for abort, begin, end\n" % self.email_behavior)
             if self.output is not None:
                 run_script.write("#PBS -o localhost:%s   # stdout\n" % self.output)
                 run_script.write("#PBS -e localhost:%s   # stderr\n" % self.output)
@@ -163,6 +166,9 @@ class BatchController(batch.BatchController):
             ## run_script.write("export MIC_ENV_PREFIX=MIC")
             ## run_script.write("export MIC_OMP_NUM_THREADS=%s\n" % job.mic_omp_num_threads)
             ## run_script.write("export MIC_KMP_AFFINITY=%s\n" % job.mic_affinity)
+            run_script.write("\n")
+            run_script.write("# Location of output\n")
+            run_script.write(self.output)
             run_script.write("\n")
             run_script.write("# Run command\n")
             run_script.write(run_cmd)
