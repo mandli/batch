@@ -1,3 +1,15 @@
+"""
+Script to analyze and visualze gauge errors for the batch runs
+"""
+# ============================================================================
+#      Copyright (C) 2013 Kyle Mandli <kyle@ices.utexas.edu>
+#
+#          Distributed under the terms of the MIT license
+#                http://www.opensource.org/licenses/
+#
+# (post process scripts by Akshay Sriapda <as4928@columbia.edu>, 2017)
+# ============================================================================
+
 from collections import defaultdict
 import numpy
 import matplotlib.pyplot as plt
@@ -5,31 +17,6 @@ from matplotlib import cm
 import os
 import math
 from mpl_toolkits.mplot3d import Axes3D
-
-# point run_data_path to where the run details text file is located.
-# If there is no text file with the details, create an array with the deatils
-run_data_path = '../../scratch/Tohoku-hawaii/'
-run_data = numpy.loadtxt(run_data_path+'run-data.txt')
-
-path = 'post-process-data/'
-data = open(path+'summary-data.txt')
-output_time = numpy.loadtxt(path+'output-times.txt')
-if not os.path.exists(path+'plots'):
-    os.makedirs(path+'plots')
-plot_path = path+'plots/'
-
-first_line = data.readline().strip().split()
-number_of_gauges = int(first_line[1])
-number_of_sweeps = int(first_line[0])
-time_data = numpy.empty([number_of_sweeps,2])
-number_of_total_cell_updates = numpy.empty([number_of_sweeps,1])
-L1_error_data = numpy.empty([number_of_sweeps,number_of_gauges])
-L2_error_data = numpy.empty([number_of_sweeps,number_of_gauges])
-Inf_error_data = numpy.empty([number_of_sweeps,number_of_gauges])
-
-number_of_cells = {}
-for i in range(number_of_sweeps):
-    number_of_cells[i+1] = numpy.loadtxt(path+'num_cells_run_'+str(i+1)+'.txt')
 
 def plot_summary(time,L1_error,L2_error,Inf_error,no_of_gauges,no_of_sweeps,regrid_time):
 
@@ -528,82 +515,101 @@ def plot_cost_objective(time,data,error_weight,time_weight,error_type):
 
     return cost,cost.tolist().index(max(cost)),cost.tolist().index(min(cost))
 
+if __name__ == "__main__":
+    # point run_data_path to where the run details text file is located.
+    # If there is no text file with the details, create an array with the deatils
+    run_data_path = '../../scratch/Tohoku-hawaii/'
+    run_data = numpy.loadtxt(run_data_path+'run-data.txt')
 
-sweep_count = -1
-gauge_count = 0
+    path = 'post-process-data/'
+    data = open(path+'summary-data.txt')
+    output_time = numpy.loadtxt(path+'output-times.txt')
+    if not os.path.exists(path+'plots'):
+        os.makedirs(path+'plots')
+    plot_path = path+'plots/'
 
-for l in data:
-    line = l.strip().split()
-    if len(line) == 0:
-        break
+    first_line = data.readline().strip().split()
+    number_of_gauges = int(first_line[1])
+    number_of_sweeps = int(first_line[0])
+    time_data = numpy.empty([number_of_sweeps,2])
+    number_of_total_cell_updates = numpy.empty([number_of_sweeps,1])
+    L1_error_data = numpy.empty([number_of_sweeps,number_of_gauges])
+    L2_error_data = numpy.empty([number_of_sweeps,number_of_gauges])
+    Inf_error_data = numpy.empty([number_of_sweeps,number_of_gauges])
 
-    elif line[0] == '0':
-        sweep_count+=1
-        time_data[sweep_count,0] = float(line[1])
-        time_data[sweep_count,1] = float(line[2])
-        number_of_total_cell_updates[sweep_count,0] = float(line[3])
+    number_of_cells = {}
+    for i in range(number_of_sweeps):
+        number_of_cells[i+1] = numpy.loadtxt(path+'num_cells_run_'+str(i+1)+'.txt')
+
+    sweep_count = -1
+    gauge_count = 0
+
+    for l in data:
+        line = l.strip().split()
+        if len(line) == 0:
+            break
+
+        elif line[0] == '0':
+            sweep_count+=1
+            time_data[sweep_count,0] = float(line[1])
+            time_data[sweep_count,1] = float(line[2])
+            number_of_total_cell_updates[sweep_count,0] = float(line[3])
+            
+        elif line[0] == 'g':
+            L1_error_data[sweep_count,gauge_count] = float(line[1])
+            L2_error_data[sweep_count,gauge_count] = float(line[2])
+            Inf_error_data[sweep_count,gauge_count] = float(line[3])
+            gauge_count+=1
+            if gauge_count >= number_of_gauges:
+                gauge_count = 0
+
+        elif line[0] == 'b':
+            basline_total_time = float(line[2])
+            basline_regridding_time = float(line[1])
+
+    # Normalizing the data
+    time = (time_data[:,0]*100)/basline_total_time
+    regridding_time = (time_data[:,1])/numpy.amax(time_data[:,1])
+    L1_error_data = L1_error_data/numpy.amax(L1_error_data)
+    L2_error_data = L2_error_data/numpy.amax(L2_error_data)
+    Inf_error_data = Inf_error_data/numpy.amax(Inf_error_data)
+
+    grid_size = numpy.empty([1,number_of_sweeps])
+    max_level = numpy.empty([1,number_of_sweeps])
+    refinemnt_ratios = []
+    count = 0
+    for i in range(1,number_of_sweeps+1):
+
+        grid_size[0,count] = run_data[i,0]
+        max_level[0,count] = run_data[i,2]
+        refinemnt_ratios.append(run_data[i,3:])
         
-    elif line[0] == 'g':
-        L1_error_data[sweep_count,gauge_count] = float(line[1])
-        L2_error_data[sweep_count,gauge_count] = float(line[2])
-        Inf_error_data[sweep_count,gauge_count] = float(line[3])
-        gauge_count+=1
-        if gauge_count >= number_of_gauges:
-            gauge_count = 0
+        count += 1
 
-    elif line[0] == 'b':
-        basline_total_time = float(line[2])
-        basline_regridding_time = float(line[1])
+    refinemnt_ratios = numpy.array(refinemnt_ratios)
 
-# Normalizing the data
-time = (time_data[:,0]*100)/basline_total_time
-regridding_time = (time_data[:,1])/numpy.amax(time_data[:,1])
-L1_error_data = L1_error_data/numpy.amax(L1_error_data)
-L2_error_data = L2_error_data/numpy.amax(L2_error_data)
-Inf_error_data = Inf_error_data/numpy.amax(Inf_error_data)
+    l1_data,l2_data,inf_data,lowest_error_sweep,highest_error_sweep = get_avg_bound(L1_error_data,L2_error_data,Inf_error_data,number_of_sweeps)
+    plot_summary(time,L1_error_data,L2_error_data,Inf_error_data,number_of_gauges,number_of_sweeps,regridding_time)
+    plot_features(time,l1_data,l2_data,inf_data,number_of_gauges,number_of_sweeps,regridding_time,number_of_total_cell_updates,max_level)
+    cost,highest_cost_sweep,lowest_cost_sweep = plot_cost_objective(time,l1_data,0.5,0.5,'L1')
 
-grid_size = numpy.empty([1,number_of_sweeps])
-max_level = numpy.empty([1,number_of_sweeps])
-refinemnt_ratios = []
-count = 0
-for i in range(1,number_of_sweeps+1):
+    plot_cell_ratios(output_time,number_of_sweeps,number_of_cells,refinemnt_ratios,max_level,grid_size,lowest_error_sweep,highest_error_sweep,highest_cost_sweep,lowest_cost_sweep,l1_data,cost,time)
 
-    grid_size[0,count] = run_data[i,0]
-    max_level[0,count] = run_data[i,2]
-    refinemnt_ratios.append(run_data[i,3:])
-    
-    count += 1
+    distinct_max_level = []
+    sweep_indices = defaultdict(list)
+    pair_indices = defaultdict(list)
+    for i in range(0,number_of_sweeps):
+        sweep_indices[max_level[0,i]].append(i)
+        if max_level[0,i] not in distinct_max_level:
+            distinct_max_level.append(max_level[0,i])
 
-refinemnt_ratios = numpy.array(refinemnt_ratios)
-
-l1_data,l2_data,inf_data,lowest_error_sweep,highest_error_sweep = get_avg_bound(L1_error_data,L2_error_data,Inf_error_data,number_of_sweeps)
-plot_summary(time,L1_error_data,L2_error_data,Inf_error_data,number_of_gauges,number_of_sweeps,regridding_time)
-plot_features(time,l1_data,l2_data,inf_data,number_of_gauges,number_of_sweeps,regridding_time,number_of_total_cell_updates,max_level)
-cost,highest_cost_sweep,lowest_cost_sweep = plot_cost_objective(time,l1_data,0.5,0.5,'L1')
-
-plot_cell_ratios(output_time,number_of_sweeps,number_of_cells,refinemnt_ratios,max_level,grid_size,lowest_error_sweep,highest_error_sweep,highest_cost_sweep,lowest_cost_sweep,l1_data,cost,time)
-
-distinct_max_level = []
-sweep_indices = defaultdict(list)
-pair_indices = defaultdict(list)
-for i in range(0,number_of_sweeps):
-    sweep_indices[max_level[0,i]].append(i)
-    if max_level[0,i] not in distinct_max_level:
-        distinct_max_level.append(max_level[0,i])
-
-for i in range(0,number_of_sweeps):
-    for j in range(i+1,number_of_sweeps):
-        
-        if(numpy.array_equal(refinemnt_ratios[i,:max_level[0,i]-1],refinemnt_ratios[j,:max_level[0,j]-1][::-1])):
-            pair_indices[i+1].append(j+1)
-plot_level_group(time,l1_data,distinct_max_level,sweep_indices,'L1',refinemnt_ratios,pair_indices)
+    for i in range(0,number_of_sweeps):
+        for j in range(i+1,number_of_sweeps):
+            
+            if(numpy.array_equal(refinemnt_ratios[i,:max_level[0,i]-1],refinemnt_ratios[j,:max_level[0,j]-1][::-1])):
+                pair_indices[i+1].append(j+1)
+    plot_level_group(time,l1_data,distinct_max_level,sweep_indices,'L1',refinemnt_ratios,pair_indices)
 
 
-plot_cost_objective(time,l1_data,0.75,0.25,'L1')
-plot_cost_objective(time,l1_data,0.25,0.75,'L1')
-
-
-
-
-
-
+    plot_cost_objective(time,l1_data,0.75,0.25,'L1')
+    plot_cost_objective(time,l1_data,0.25,0.75,'L1')

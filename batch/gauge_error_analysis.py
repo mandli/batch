@@ -1,27 +1,23 @@
+"""
+Script to read gauge data and calculate errors relative to the baseline run for the batch runs
+"""
+# ============================================================================
+#      Copyright (C) 2013 Kyle Mandli <kyle@ices.utexas.edu>
+#
+#          Distributed under the terms of the MIT license
+#                http://www.opensource.org/licenses/
+#
+# (post process scripts by Akshay Sriapda <as4928@columbia.edu>, 2017)
+# ============================================================================
+
+
 from collections import defaultdict
 import numpy
 import matplotlib.pyplot as plt
 import os
 import glob
 
-# point output_path to the output folder from the scenarios
-output_path = '../../scratch/Tohoku-hawaii/tohoku-hawaii-scenario/all-scenarios-1/'
 
-# point run_data_path to where the run details text file is located.
-# If there is no text file with the details, create an array with the deatils
-run_data_path = '../../scratch/Tohoku-hawaii/'
-sweep_data = numpy.loadtxt(run_data_path+'run-data.txt')
-
-# point log_path to where all the run log files are located
-log_path = '../../scratch/Tohoku-hawaii/'
-
-# All the post processed data will be stored in a new folder names post-process-data
-if not os.path.exists('post-process-data'):
-    os.makedirs('post-process-data')
-
-summary_file = open('post-process-data/summary-data.txt','w')
-output_file = open('post-process-data/output-data.txt','w')
-debug_file = open('post-process-data/debug-data.txt','w')
 
 def extract_level_data(data,var,level):
     lev_data = []
@@ -246,14 +242,6 @@ def error_calc(test,base,gauge,number_of_levels,dir,summary_file,output_file,deb
             output_file.write('Level '+str(i)+' L2 Norm error for gauge '+str(gauge)+' is '+str(norm_error[:,1])+ '\n')
             output_file.write('Level '+str(i)+' Infinity Norm error for gauge '+str(gauge)+' is '+str(norm_error[:,2]) + '\n')
 
-    #summary_file.write(str(norm_error[3,0])+' '+str(norm_error[3,1])+' '+str(norm_error[3,2]))
-    #numpy.savetxt(dir+'error'+str(gauge)+'.txt',error)
-    #numpy.savetxt(dir+'test'+str(gauge)+'.txt',test)
-    #numpy.savetxt(dir+'base'+str(gauge)+'.txt',base)
-    #numpy.savetxt(dir+'interpolated-base'+str(gauge)+'.txt',interpolate_base)
-    #plot_data(test,base,gauge,int(number_of_levels),dir)
-    #plot_error(gauge,error,int(number_of_levels),dir)
-
     return [output_file,summary_file,debug_file]
 
 def get_num_of_levels(root_path,sweep_data):
@@ -290,107 +278,127 @@ def get_num_of_levels(root_path,sweep_data):
         numpy.savetxt('post-process-data/num_cells_run_'+str(k)+'.txt',num_cells)
     numpy.savetxt('post-process-data/output-times.txt',time)
 
-gauges_data = open(output_path+'sweep_0_output/gauges.data')
+if __name__ == "__main__":
+	# point output_path to the output folder from the scenarios
+	output_path = '../../scratch/Tohoku-hawaii/tohoku-hawaii-scenario/all-scenarios-1/'
 
-get_num_of_levels(output_path,sweep_data)
+	# point run_data_path to where the run details text file is located.
+	# If there is no text file with the details, create an array with the deatils
+	run_data_path = '../../scratch/Tohoku-hawaii/'
+	sweep_data = numpy.loadtxt(run_data_path+'run-data.txt')
 
-gauge_list = []
+	# point log_path to where all the run log files are located
+	log_path = '../../scratch/Tohoku-hawaii/'
 
-count = 0
+	# All the post processed data will be stored in a new folder names post-process-data
+	if not os.path.exists('post-process-data'):
+	    os.makedirs('post-process-data')
 
-for i in gauges_data:
-    l = i.strip().split(' ')
-    count += 1
-    if count >= 8 and l == ['']:
-        break
-    elif count>= 8:
-        gauge_list.append(int(l[0]))
+	summary_file = open('post-process-data/summary-data.txt','w')
+	output_file = open('post-process-data/output-data.txt','w')
+	debug_file = open('post-process-data/debug-data.txt','w')
 
-gauge_list.sort()
-baseline_gauges = defaultdict(list)
+	gauges_data = open(output_path+'sweep_0_output/gauges.data')
 
-for i in gauge_list:
-    
-    l = len(str(i))
-    if l < 5:
-	   t = '0'*(5-l)+str(i)
-    else:
-	   t = str(i)
-    baseline_gauges[i] = numpy.loadtxt(output_path+'sweep_0_output/gauge' + t +'.txt')
-    baseline_gauges[i] = numpy.array(baseline_gauges[i])
+	get_num_of_levels(output_path,sweep_data)
 
-log_file = open(output_path + 'sweep_0_log.txt')
-run_number = log_file.readline().strip().split('.')[0]
-base_log_data = open(log_path+'sweep_0.o'+run_number)
+	gauge_list = []
 
-number_of_tests = len(sweep_data) - 1
+	count = 0
 
-for line in base_log_data:
-    l = line.strip().split()
-    if not l:
-        continue
-    elif l[0] == 'total':
-        base_total_cells = l[3]
-        output_file.write('Total cells for baseline run '+base_total_cells+ '\n')
-    elif l[0] == 'Total' and l[1] == 'time:':
-        base_total_time = l[2]
-        output_file.write('Total wall time for baseline run '+base_total_time+ '\n')
-    elif l[0] == 'Regridding':
-        base_regridding_time = l[1]
-        output_file.write('Regridding time for baseline run '+base_regridding_time+ '\n')
+	for i in gauges_data:
+	    l = i.strip().split(' ')
+	    count += 1
+	    if count >= 8 and l == ['']:
+	        break
+	    elif count>= 8:
+	        gauge_list.append(int(l[0]))
 
-summary_file.write(str(number_of_tests)+' '+str(len(gauge_list))+' '+ str(base_total_cells) +'\n')
-                  
-for i in range(0,number_of_tests):
-    dir = 'post-process-data/test-no-'+str(i+1)
-    if not os.path.exists(dir):
-        os.makedirs(dir)
-              
-    max_level = sweep_data[i+1][2]
-    
-    output_file.write('The Sweep number '+str(i+1)+' had the following data: '+ '\n')
-    output_file.write('Grid s`  ize: '+str(sweep_data[i+1][0])+' by '+ str(sweep_data[i+1][1])+ '\n')
-    output_file.write('The max AMR Level is '+ str(max_level)+ '\n')
-    output_file.write('The AMR Levels used are '+ str(sweep_data[i+1][3:]) +'\n')
+	gauge_list.sort()
+	baseline_gauges = defaultdict(list)
 
-    log_file = open(output_path + 'sweep_'+str(i+1)+'_log.txt')
-    run_number = log_file.readline().strip().split('.')[0]
-    test_log_data = open(log_path+'sweep_'+str(i+1)+'.o'+run_number)
+	for i in gauge_list:
+	    
+	    l = len(str(i))
+	    if l < 5:
+		   t = '0'*(5-l)+str(i)
+	    else:
+		   t = str(i)
+	    baseline_gauges[i] = numpy.loadtxt(output_path+'sweep_0_output/gauge' + t +'.txt')
+	    baseline_gauges[i] = numpy.array(baseline_gauges[i])
 
-    for line in test_log_data:
-        l = line.strip().split()
-        if not l:
-            continue
-        elif l[0] == 'total':
-            test_total_cells = l[3]
-            output_file.write('Total cells for test run '+base_total_cells+ '\n')
-        elif l[0] == 'Total' and l[1] == 'time:':
-            test_total_time = l[2]
-            summary_file.write('0 '+str(test_total_time)+' '+str(test_regridding_time)+' '+str(test_total_cells)+' '+str(i+1)+'\n')
-            output_file.write('Total wall time for test run '+test_total_time+ '\n')
+	log_file = open(output_path + 'sweep_0_log.txt')
+	run_number = log_file.readline().strip().split('.')[0]
+	base_log_data = open(log_path+'sweep_0.o'+run_number)
 
-        elif l[0] == 'Regridding':
-            test_regridding_time = l[1]
-            output_file.write('Regridding time for test run '+test_regridding_time +'\n')
+	number_of_tests = len(sweep_data) - 1
 
-    test_gauges = defaultdict(list)
+	for line in base_log_data:
+	    l = line.strip().split()
+	    if not l:
+	        continue
+	    elif l[0] == 'total':
+	        base_total_cells = l[3]
+	        output_file.write('Total cells for baseline run '+base_total_cells+ '\n')
+	    elif l[0] == 'Total' and l[1] == 'time:':
+	        base_total_time = l[2]
+	        output_file.write('Total wall time for baseline run '+base_total_time+ '\n')
+	    elif l[0] == 'Regridding':
+	        base_regridding_time = l[1]
+	        output_file.write('Regridding time for baseline run '+base_regridding_time+ '\n')
 
-    for j in gauge_list:
-	test_path = output_path+'sweep_'+str(i+1)+'_output/'
-    	l = len(str(j))
-    	if l < 5:
-	    t = '0'*(5-l)+str(j)
-    	else:
-	    t = str(j)
+	summary_file.write(str(number_of_tests)+' '+str(len(gauge_list))+' '+ str(base_total_cells) +'\n')
+	                  
+	for i in range(0,number_of_tests):
+	    dir = 'post-process-data/test-no-'+str(i+1)
+	    if not os.path.exists(dir):
+	        os.makedirs(dir)
+	              
+	    max_level = sweep_data[i+1][2]
+	    
+	    output_file.write('The Sweep number '+str(i+1)+' had the following data: '+ '\n')
+	    output_file.write('Grid s`  ize: '+str(sweep_data[i+1][0])+' by '+ str(sweep_data[i+1][1])+ '\n')
+	    output_file.write('The max AMR Level is '+ str(max_level)+ '\n')
+	    output_file.write('The AMR Levels used are '+ str(sweep_data[i+1][3:]) +'\n')
 
-        test_gauges[j] = numpy.loadtxt(test_path+'gauge' + t +'.txt')
-    
-              
-    for j in gauge_list:
-        test_gauges[j] = numpy.array(test_gauges[j])
-        summary_file.write('g ')
-        [output_file,summary_file,debug_file] = error_calc(test_gauges[j],baseline_gauges[j],j,max_level,dir,summary_file,output_file,debug_file)
-        summary_file.write('\n')
-    
-summary_file.write('b '+str(base_regridding_time)+' '+str(base_total_time)+'\n\n')
-print 'Error Analysis done'
+	    log_file = open(output_path + 'sweep_'+str(i+1)+'_log.txt')
+	    run_number = log_file.readline().strip().split('.')[0]
+	    test_log_data = open(log_path+'sweep_'+str(i+1)+'.o'+run_number)
+
+	    for line in test_log_data:
+	        l = line.strip().split()
+	        if not l:
+	            continue
+	        elif l[0] == 'total':
+	            test_total_cells = l[3]
+	            output_file.write('Total cells for test run '+base_total_cells+ '\n')
+	        elif l[0] == 'Total' and l[1] == 'time:':
+	            test_total_time = l[2]
+	            summary_file.write('0 '+str(test_total_time)+' '+str(test_regridding_time)+' '+str(test_total_cells)+' '+str(i+1)+'\n')
+	            output_file.write('Total wall time for test run '+test_total_time+ '\n')
+
+	        elif l[0] == 'Regridding':
+	            test_regridding_time = l[1]
+	            output_file.write('Regridding time for test run '+test_regridding_time +'\n')
+
+	    test_gauges = defaultdict(list)
+
+	    for j in gauge_list:
+		test_path = output_path+'sweep_'+str(i+1)+'_output/'
+	    	l = len(str(j))
+	    	if l < 5:
+		    t = '0'*(5-l)+str(j)
+	    	else:
+		    t = str(j)
+
+	        test_gauges[j] = numpy.loadtxt(test_path+'gauge' + t +'.txt')
+	    
+	              
+	    for j in gauge_list:
+	        test_gauges[j] = numpy.array(test_gauges[j])
+	        summary_file.write('g ')
+	        [output_file,summary_file,debug_file] = error_calc(test_gauges[j],baseline_gauges[j],j,max_level,dir,summary_file,output_file,debug_file)
+	        summary_file.write('\n')
+	    
+	summary_file.write('b '+str(base_regridding_time)+' '+str(base_total_time)+'\n\n')
+	print 'Error Analysis done'
