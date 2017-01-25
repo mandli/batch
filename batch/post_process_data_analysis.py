@@ -19,7 +19,10 @@ import math
 from mpl_toolkits.mplot3d import Axes3D
 
 def plot_summary(time,L1_error,L2_error,Inf_error,no_of_gauges,no_of_sweeps,regrid_time):
-
+    # plots all the three norm errors for all gauges in three subplots. 
+    # Colors represnt different sweeps
+    # Markers represent different gauges 
+    #Marker size is relative to regridding time
     sweep_labels = ['r','b','g','c','m','y','k']
     gauge_labesls = ['o','s','d','^','v','>','+','p','h','o','s']
     
@@ -59,7 +62,8 @@ def plot_summary(time,L1_error,L2_error,Inf_error,no_of_gauges,no_of_sweeps,regr
     plt.savefig(plot_path+'tohoku-error.png',bbox_inches='tight')
     
 def get_avg_bound(L1_error,L2_error,Inf_error,no_of_sweeps):
-
+    # calcualtes the max and min errors for each sweep and which gauge the max and min occurs at.
+    # Also the average error over all the gauges for each sweep
     L1_info = numpy.empty([6,no_of_sweeps])
     L2_info = numpy.empty([6,no_of_sweeps])
     Inf_info = numpy.empty([6,no_of_sweeps])
@@ -91,7 +95,7 @@ def get_avg_bound(L1_error,L2_error,Inf_error,no_of_sweeps):
     return L1_info,L2_info,Inf_info,lowest_error_sweep,highest_error_sweep
 
 def plot_error_bar(time,l1_data,l2_data,inf_data,no_of_sweeps,error_bars):
-
+    # plots the max and min errors for each sweep as a error bar plot with gauge nos 
     #fig, (ax1,ax2,ax3) = plt.subplots(3)
     fig, (ax1) = plt.subplots(1)
     
@@ -137,7 +141,7 @@ def plot_error_bar(time,l1_data,l2_data,inf_data,no_of_sweeps,error_bars):
         plt.savefig(plot_path+'gauge_details_no_error_bar.png',bbox_inches='tight')
                     
 def plot_error_average(time,data,no_of_sweeps,max_level,error_type):
-
+    # plots the error average of all gauges for each sweep. error_type can handle different norms 
 	colour = ['r','b','g','c','m','y']
 	count = defaultdict(list)
 	for i in range(number_of_sweeps):
@@ -169,7 +173,7 @@ def plot_error_average(time,data,no_of_sweeps,max_level,error_type):
 	plt.savefig(plot_path+error_type+'-average.png',bbox_inches='tight')
 	                
 def plot_error_std(time,average,std,lower,upper,no_of_sweeps,error_type):
-    
+    # plots the standard deviation of errors of all gauges for each sweep. error_type can handle different norms 
     fig, (ax1) = plt.subplots(1)
     ax1.errorbar(time,average,yerr=[numpy.subtract(average,lower),numpy.subtract(upper,average)],ls='',marker='o',color='r',markersize=5)
     
@@ -186,6 +190,7 @@ def plot_error_std(time,average,std,lower,upper,no_of_sweeps,error_type):
 
 
 def plot_number_cells(time,data,no_of_sweeps):
+    # plots the total number of cells used for each sweep
     fig, (ax1) = plt.subplots(1)
     
     scale = len(str(int(max(data)))) - 1
@@ -207,6 +212,7 @@ def plot_number_cells(time,data,no_of_sweeps):
     
 
 def plot_regrid_time(time,data,no_of_sweeps,error_type):
+    #plots the regridding time used for each sweep
     fig, (ax1) = plt.subplots(1)
     
     count = 0
@@ -252,6 +258,7 @@ def plot_features(time,l1_data,l2_data,inf_data,no_of_gauges,no_of_sweeps,regrid
 
 
 def plot_cell_ratios(output_time,number_of_sweeps,number_of_cells,refinemnt_ratios,max_level,grid_size,lowest_error_sweep,highest_error_sweep,highest_cost_sweep,lowest_cost_sweep,data,cost,time):
+    # calculates the cell ratios and plots them vs various other quantities
     cell_number_ratio_sum = numpy.zeros([number_of_sweeps,len(output_time)])
     cell_number_ratio_avg = numpy.zeros([number_of_sweeps,1])
     fig, (ax1) = plt.subplots(1)
@@ -409,7 +416,7 @@ def plot_cell_ratios(output_time,number_of_sweeps,number_of_cells,refinemnt_rati
 
 
 def plot_level_group(time,data,distinct_max_level,sweep_indices,error_type,refinemnt_ratios,pair_indices):
-    
+    # plots the sweeps using the same number of levels in different subplot 
     count = 0
     
     nrow = int(math.ceil(len(distinct_max_level)/2.0)) ; ncol = int(math.floor(len(distinct_max_level)/2.0));
@@ -438,6 +445,8 @@ def plot_level_group(time,data,distinct_max_level,sweep_indices,error_type,refin
     #plt.suptitle("Level "+str(distinct_max_level[count])+" Groupings")
     plt.savefig(plot_path+error_type+'-grouping.png',bbox_inches='tight')
 
+    # plots grouping with levels represnted by colors and also plots an arrow for the pairs of sweeps. 
+    # Pairs are the sweeps with same refinement ratios but different arrangements
     fig, ax1 = plt.subplots(1)
     colour = ['r','b','g','c','m','y']
 
@@ -490,7 +499,7 @@ def plot_level_group(time,data,distinct_max_level,sweep_indices,error_type,refin
 
 
 def plot_cost_objective(time,data,error_weight,time_weight,error_type):
-
+    # calculates and pltos a cost plot. The cost calculations depend on the weights sent to the functions
     cost = numpy.zeros(numpy.shape(time))
     fig, ax1 = plt.subplots(1)
     for i in range(0,len(time)):

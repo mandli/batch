@@ -20,6 +20,7 @@ import glob
 
 
 def extract_level_data(data,var,level):
+    # get gauge data at particular levels
     lev_data = []
     for i in data:
         if i[0] == level:
@@ -27,6 +28,7 @@ def extract_level_data(data,var,level):
     return numpy.array(lev_data)
 
 def plot_data(test,base,gauge,level,dir):
+    # plots all the h,hu,hv, Eta vs time 
     directory = dir+'/Plots/'
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -95,6 +97,7 @@ def plot_data(test,base,gauge,level,dir):
     plt.savefig(directory+str(gauge)+'_Data.png')
 
 def plot_error(gauge,error,level,dir):
+    # plots error relative to basseline for the four unkowns
     directory = dir+'/Plots/'
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -160,6 +163,7 @@ def plot_error(gauge,error,level,dir):
 
 
 def norm_calc(error,level,max_quants,debug_file):
+    # calculates error norm value which is normalized by the largest value in the dataset
     level_error = numpy.empty([4,3])
     
     if level == 0:
@@ -186,6 +190,7 @@ def norm_calc(error,level,max_quants,debug_file):
     return [level_error,debug_file]
 
 def interpolate(test,base_0,base_1):
+    # interpolates data points in the baseline for time steps not recorded
     x = test[1]
     x_0 = base_0[1]
     x_1 = base_1[1]
@@ -198,7 +203,7 @@ def interpolate(test,base_0,base_1):
     return base
 
 def error_calc(test,base,gauge,number_of_levels,dir,summary_file,output_file,debug_file):
-    
+    # Actual error calculations done for each timestep the data is recorded
     for i in range(0,len(test)):
         if test[i,1] > base[-1,1]:
             cutoff_location = i-1
@@ -245,6 +250,7 @@ def error_calc(test,base,gauge,number_of_levels,dir,summary_file,output_file,deb
     return [output_file,summary_file,debug_file]
 
 def get_num_of_levels(root_path,sweep_data):
+    # Uses code from Clawpack file plot_num_grids.py to calculate the number of cells used at each output time step
     for k in range(0,len(sweep_data)):
     
         output_path = root_path+'sweep_'+str(k)+'_output/fort.q*'
@@ -294,18 +300,18 @@ if __name__ == "__main__":
 	if not os.path.exists('post-process-data'):
 	    os.makedirs('post-process-data')
 
+    # summary file contains error norm and run time data, used for visualizing
 	summary_file = open('post-process-data/summary-data.txt','w')
+    # output file logs all the erros for each gauge for each sweep
 	output_file = open('post-process-data/output-data.txt','w')
+    # debug file can be used to log the parameters passed through the various functions
 	debug_file = open('post-process-data/debug-data.txt','w')
 
 	gauges_data = open(output_path+'sweep_0_output/gauges.data')
-
 	get_num_of_levels(output_path,sweep_data)
-
 	gauge_list = []
-
 	count = 0
-
+    
 	for i in gauges_data:
 	    l = i.strip().split(' ')
 	    count += 1
