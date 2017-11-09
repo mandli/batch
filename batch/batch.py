@@ -209,7 +209,7 @@ class BatchController(object):
         self.terminal_output = False
 
         # Path controls
-        if os.environ.has_key('DATA_PATH'):
+        if 'DATA_PATH' in os.environ.keys():
             self.base_path = os.environ['DATA_PATH']
         else:
             self.base_path = os.getcwd()
@@ -219,7 +219,7 @@ class BatchController(object):
         self.parallel = True
         self.wait = False
         self.poll_interval = 5.0
-        if os.environ.has_key('OMP_NUM_THREADS'):
+        if 'OMP_NUM_THREADS' in os.environ.keys():
             self.max_processes = int(os.environ['OMP_NUM_THREADS'])
         else:
             self.max_processes = 4
