@@ -10,6 +10,9 @@ Includes support for multiple runs at the same time
 #                http://www.opensource.org/licenses/
 # ============================================================================
 
+from __future__ import print_function
+from __future__ import absolute_import
+
 import subprocess
 import os
 import time
@@ -346,7 +349,7 @@ class BatchController(object):
             if self.parallel:
                 while len(self._process_queue) == self.max_processes:
                     if self.verbose:
-                        print "Number of processes currently:",len(self._process_queue)
+                        print("Number of processes currently:",len(self._process_queue))
                     for process in self._process_queue:
                         if process.poll() is not None:
                             self._process_queue.remove(process)
@@ -372,7 +375,7 @@ class BatchController(object):
                 for process in self._process_queue:
                     if process.poll() is not None:
                         self._process_queue.remove(process)
-                print "Number of processes currently:",len(self._process_queue)
+                print("Number of processes currently:",len(self._process_queue))
             
         return paths
 

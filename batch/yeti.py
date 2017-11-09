@@ -9,6 +9,9 @@ r"""Batch sub-classes for runs on Columbia's Yeti cluster"""
 # (adapted for yeti by Andrew Kaluzny <akk2141@columbia.edu>, 2015)
 # ============================================================================
 
+from __future__ import print_function
+from __future__ import absolute_import
+
 import os
 import glob
 import subprocess
