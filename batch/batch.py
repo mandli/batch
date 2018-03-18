@@ -20,45 +20,44 @@ import glob
 
 
 class Job(object):
-    r"""Base object for all jobs 
+    r"""Base object for all jobs
 
-    The ``type``, ``name``, and ``prefix`` attributes are used by the 
-    :class:`BatchController` to create the path to the output files along with 
-    the name of the output directories and log file.  The pattern is 
-    ``base_path/type/name/prefix*``.  See :class:`BatchController` for more 
+    The ``type``, ``name``, and ``prefix`` attributes are used by the
+    :class:`BatchController` to create the path to the output files along with
+    the name of the output directories and log file.  The pattern is
+    ``base_path/type/name/prefix*``.  See :class:`BatchController` for more
     information on how these are created.
 
     .. attribute:: type
 
-        (string) - The top most directory that the batch output will be 
+        (string) - The top most directory that the batch output will be
         located in.  ``default = ""``.
-    
+
     .. attribute:: name
 
         (string) - The second top most directory that the batch output will
         be located in.  ``default = ""``.
-    
+
     .. attribute:: prefix
 
         (string) - The prefix applied to the data directory, the output
         directory, and the log file.  ``default = None``.
-    
+
     .. attribute:: executable
 
         (string) - Name of the binary executable.  ``default = "xclaw"``.
-    
+
     .. attribute:: setplot
 
-        (string) - Name of the module containing the `setplot` 
+        (string) - Name of the module containing the `setplot`
         function.  ``default = "setplot"``.
-    
+
     .. attribute:: rundata
 
-        (clawpack.clawutil.data.ClawRunData) - The data object 
-        containing all data objects.  By default all data objects inside of this
-        object will be written out.  This attribute must be instantiated by any
-        subclass and if not will raise a ValueError exception when asked to 
-        write out.
+        (clawpack.clawutil.data.ClawRunData) - The data object containing all
+        data objects.  By default all data objects inside of this object will
+        be written out.  This attribute must be instantiated by any subclass
+        and if not will raise a ValueError exception when asked to write out.
 
     :Initialization:
 
@@ -69,9 +68,9 @@ class Job(object):
     def __init__(self):
         r"""
         Initialize a Job object
-        
+
         See :class:`Job` for full documentation
-        """ 
+        """
 
         super(Job, self).__init__()
 
@@ -83,14 +82,12 @@ class Job(object):
         self.executable = 'xclaw'
 
         self.rundata = None
-        
 
     def __str__(self):
-        output = "Job %s: %s\n" % (self.name,self.prefix)
+        output = "Job %s: %s\n" % (self.name, self.prefix)
         output += "  Setplot: %s\n" % self.setplot
         return output
-    
-        
+
     def write_data_objects(self):
         r"""
         Write out data objects contained in *rundata*
@@ -104,32 +101,30 @@ class Job(object):
         self.rundata.write()
 
 
-
 class BatchController(object):
-    
     r"""Controller for Clawpack batch runs.
 
     Controller object that will run the set of jobs provided with the
-    parameters set in the object including plotting, path creation, and 
+    parameters set in the object including plotting, path creation, and
     simple process parallelism.
 
-    .. attribute:: jobs 
+    .. attribute:: jobs
 
         (list) - List of :class:`Job` objects that will be run.
 
-    .. attribute:: plot 
+    .. attribute:: plot
 
-        (bool) - If True each job will be plotted after it has run.  
+        (bool) - If True each job will be plotted after it has run.
         ``default = True``
 
     .. attribute:: tar
 
-        (bool) - If True will tar and gzip the plots directory.  
+        (bool) - If True will tar and gzip the plots directory.
         ``default = False``
 
     .. attribute:: verbose
 
-        (bool) - If True will print to stdout the remaining jobs 
+        (bool) - If True will print to stdout the remaining jobs
         waiting to be run and how many are currently in the process queue.
         ``default = False``.
 
@@ -141,27 +136,27 @@ class BatchController(object):
 
     .. attribute:: base_path
 
-        (path) - The base path to put all output.  If the 
-        environment variable ``DATA_PATH`` is set than the ``base_path`` will be
-        set to that.  Otherwise the current working directory (returned by 
+        (path) - The base path to put all output.  If the
+        environment variable ``DATA_PATH`` is set than the ``base_path`` will
+        be set to that.  Otherwise the current working directory (returned by
         ``os.getcwd()``) will be used.
 
     .. attribute:: parallel
 
         (bool) - If True, jobs will be run in parallel.  This means
         that jobs will be run concurrently with other jobs up to a maximum at
-        one time of ``max_processes``.  Once a process completes a new one is 
+        one time of ``max_processes``.  Once a process completes a new one is
         started.  ``default = True``.
 
     .. attribute:: wait
 
         (bool) - If True, the method waits to return until the last job
-        has completed.  If False then the method returns immediately once the 
+        has completed.  If False then the method returns immediately once the
         last job has been added to the process queue.  Default is `False`.
 
     .. attribute:: poll_interval
 
-        (float) - Interval to poll for the status of each 
+        (float) - Interval to poll for the status of each
         process.  Default is `5.0` seconds.
 
     .. attribute:: max_processes
@@ -179,7 +174,7 @@ class BatchController(object):
     .. attribute:: plotclaw_cmd
 
         (string) - The string that stores the base command for the
-        plotting command. 
+        plotting command.
         ``default = "python $CLAW/visclaw/src/visclaw/plotclaw.py"``.
 
     :Initialization:
@@ -194,10 +189,10 @@ class BatchController(object):
 
     def __init__(self, jobs=[]):
         r"""Initialize a BatchController object.
-        
+
         See :class:`BatchController` for full documentation
 
-        """ 
+        """
 
         super(BatchController, self).__init__()
 
@@ -214,7 +209,7 @@ class BatchController(object):
         else:
             self.base_path = os.getcwd()
         self.base_path = os.path.expanduser(self.base_path)
-    
+
         # Parallel run controls
         self.parallel = True
         self.wait = False
@@ -239,14 +234,12 @@ class BatchController(object):
             else:
                 raise ValueError("Elements of jobs must be a Job.")
 
-
     def __str__(self):
         output = ""
-        for (i,job) in enumerate(self.jobs):
+        for (i, job) in enumerate(self.jobs):
             output += "====== Job #%s ============================\n" % (i)
             output += str(job) + "\n"
         return output
-
 
     def run(self, only_write_data=False):
         r"""Run jobs from controller's *jobs* list.
@@ -254,41 +247,41 @@ class BatchController(object):
         For each :class:`Job` object in *jobs* create a set of paths, directory
         structures, and log files in preperation for running the commands
         constructed.  If *parallel* is True then jobs are started and added
-        to a queue with a maximum of *maximum_processes*.  If *parallel* is 
+        to a queue with a maximum of *maximum_processes*.  If *parallel* is
         False each job is run to completion before continuing.  The *wait*
         parameter controls whether the function waits for the last job to run
         before returning.
 
         Output:
          - *paths* - (list) List of dictionaries containing paths to the data
-           constructed for each job. The dictionary has keys 'job', 'data', 
-           'output', 'plots', and 'log' which respectively stores the base 
+           constructed for each job. The dictionary has keys 'job', 'data',
+           'output', 'plots', and 'log' which respectively stores the base
            directory of the job, the data, output, and plot directories, and
            the log file.
 
         """
-        
+
         # Run jobs
         paths = []
-        for (i,job) in enumerate(self.jobs):
+        for (i, job) in enumerate(self.jobs):
             # Create output directory
-            data_dirname = ''.join((job.prefix,'_data'))
-            output_dirname = ''.join((job.prefix,"_output"))
-            plots_dirname = ''.join((job.prefix,"_plots"))
-            log_name = ''.join((job.prefix,"_log.txt"))
-            
+            data_dirname = ''.join((job.prefix, '_data'))
+            output_dirname = ''.join((job.prefix, "_output"))
+            plots_dirname = ''.join((job.prefix, "_plots"))
+            log_name = ''.join((job.prefix, "_log.txt"))
+
             if len(job.type) > 0:
-                job_path = os.path.join(self.base_path,job.type,job.name)
+                job_path = os.path.join(self.base_path, job.type, job.name)
             else:
-                job_path = os.path.join(self.base_path,job.name)
+                job_path = os.path.join(self.base_path, job.name)
             job_path = os.path.abspath(job_path)
-            data_path = os.path.join(job_path,data_dirname)
-            output_path = os.path.join(job_path,output_dirname)
-            plots_path = os.path.join(job_path,plots_dirname)
-            log_path = os.path.join(job_path,log_name)
-            paths.append({'job':job_path, 'data':data_path,
-                          'output':output_path, 'plots':plots_path,
-                          'log':log_path})
+            data_path = os.path.join(job_path, data_dirname)
+            output_path = os.path.join(job_path, output_dirname)
+            plots_path = os.path.join(job_path, plots_dirname)
+            log_path = os.path.join(job_path, log_name)
+            paths.append({'job': job_path, 'data': data_path,
+                          'output': output_path, 'plots': plots_path,
+                          'log': log_path})
 
             # Create job directory if not present
             if not os.path.exists(job_path):
@@ -304,7 +297,7 @@ class BatchController(object):
                 os.mkdir(data_path)
 
             # Open and start log file
-            log_file = open(log_path,'w')
+            log_file = open(log_path, 'w')
             tm = time.localtime()
             year = str(tm[0]).zfill(4)
             month = str(tm[1]).zfill(2)
@@ -312,9 +305,10 @@ class BatchController(object):
             hour = str(tm[3]).zfill(2)
             minute = str(tm[4]).zfill(2)
             second = str(tm[5]).zfill(2)
-            date = 'Started %s/%s/%s-%s:%s.%s' % (year,month,day,hour,minute,second)
+            date = 'Started %s/%s/%s-%s:%s.%s' % (year, month, day, hour,
+                                                  minute, second)
             log_file.write(date)
-        
+
             # Write out data
             temp_path = os.getcwd()
             os.chdir(data_path)
@@ -330,41 +324,52 @@ class BatchController(object):
                 overwrite = "F"
             else:
                 restart = "F"
-                overwrite = "T"            
-            
+                overwrite = "T"
+
             # Construct string commands
-            run_cmd = "%s %s %s %s %s %s True" % (self.runclaw_cmd, job.executable, output_path,
-                                                      overwrite, restart, data_path)
+            run_cmd = "%s %s %s %s %s %s True" % (self.runclaw_cmd,
+                                                  job.executable,
+                                                  output_path,
+                                                  overwrite,
+                                                  restart,
+                                                  data_path)
             if self.plot:
-                plot_cmd = "%s %s %s %s" % (self.plotclaw_cmd, output_path, plots_path, 
-                                                                       job.setplot)
-            tar_cmd = "tar -cvzf %s.tgz -C %s/.. %s" % (plots_path, plots_path, os.path.basename(plots_path))
+                plot_cmd = "%s %s %s %s" % (self.plotclaw_cmd,
+                                            output_path,
+                                            plots_path,
+                                            job.setplot)
+            tar_cmd = "tar -cvzf %s.tgz -C %s/.. %s" % (plots_path,
+                                                        plots_path,
+                                                        os.path.basename(
+                                                            plots_path))
             cmd = run_cmd
             if self.plot:
-                cmd = ";".join((cmd,plot_cmd))
+                cmd = ";".join((cmd, plot_cmd))
                 if self.tar:
-                    cmd = ";".join((cmd,tar_cmd))
-            
+                    cmd = ";".join((cmd, star_cmd))
+
             # Run jobs
             if self.parallel:
                 while len(self._process_queue) == self.max_processes:
                     if self.verbose:
-                        print("Number of processes currently:",len(self._process_queue))
+                        print("Number of processes currently:",
+                              len(self._process_queue))
                     for process in self._process_queue:
                         if process.poll() is not None:
                             self._process_queue.remove(process)
                     time.sleep(self.poll_interval)
-                self._process_queue.append(subprocess.Popen(cmd,shell=True,
-                        stdout=log_file,stderr=log_file))
-                
+                self._process_queue.append(subprocess.Popen(cmd, shell=True,
+                                                            stdout=log_file,
+                                                            stderr=log_file))
+
             else:
                 if self.terminal_output:
                     log_file.write("Outputting to terminal...")
-                    subprocess.Popen(cmd,shell=True).wait()
+                    subprocess.Popen(cmd, shell=True).wait()
                     log_file.write("Command completed.")
                 else:
-                    subprocess.Popen(cmd,shell=True,stdout=log_file,
-                        stderr=log_file).wait()
+                    subprocess.Popen(cmd, shell=True, stdout=log_file,
+                                     stderr=log_file).wait()
 
         # -- All jobs have been started --
 
@@ -375,7 +380,7 @@ class BatchController(object):
                 for process in self._process_queue:
                     if process.poll() is not None:
                         self._process_queue.remove(process)
-                print("Number of processes currently:",len(self._process_queue))
-            
-        return paths
+                print("Number of processes currently: %s" %
+                      len(self._process_queue))
 
+        return paths
