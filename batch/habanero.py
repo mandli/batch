@@ -1,7 +1,7 @@
-r"""Batch sub-classes for runs on the Columbia Habanero machine"""
+r"""Batch sub-classes for runs on the Columbia Habanero machine (SLURM)"""
 
 # ============================================================================
-#      Copyright (C) 2017 Kyle Mandli <kyle.mandli@columbia.edu>
+#      Copyright (C) 2018 Kyle Mandli <kyle.mandli@columbia.edu>
 #
 #          Distributed under the terms of the MIT license
 #                http://www.opensource.org/licenses/
@@ -68,7 +68,7 @@ class HabaneroBatchController(batch.BatchController):
     def run(self):
         r"""Run Habanero jobs from controller's *jobs* list.
 
-        This run function is modified to run jobs through the slurm queue 
+        This run function is modified to run jobs through the slurm queue
         system and provides controls for running serial jobs (OpenMP only).
 
         Unless otherwise noted, the behavior of this function is identical to
@@ -134,35 +134,49 @@ class HabaneroBatchController(batch.BatchController):
                                                     restart,
                                                     data_path)
 
+            if self.plot:
+                plot_cmd = "%s %s %s %s" % (self.plotclaw_cmd, output_path,
+                                            plots_path, job.setplot)
+
+            cmd = run_cmd
+            if self.plot:
+                cmd = ";".join((cmd, plot_cmd))
+                if self.tar:
+                    cmd = ";".join((cmd, tar_cmd))
+
             # Write slurm run script
             run_script = open(run_script_path, 'w')
 
             run_script.write("#!/bin/sh\n")
             run_script.write("#SBATCH -J %s        # Job name\n" % job.prefix)
             run_script.write("#SBATCH -o %s        # Job name\n" % log_path)
-            run_script.write("#SBATCH -n 1         # Total number of MPI tasks requested\n")
-            run_script.write("#SBATCH -N 1         # Total number of MPI tasks requested\n")
-            run_script.write("#SBATCH -p %s               # queue\n" % job.queue)
-            run_script.write("#SBATCH -t 9:00:00             # run time (hh:mm:ss)\n")
+            run_script.write("#SBATCH -n 1         # Total number of MPI ",
+                             "tasks requested\n")
+            run_script.write("#SBATCH -N 1         # Total number of MPI ",
+                             "tasks requested\n")
+            run_script.write("#SBATCH -p %s               # queue\n"
+                             % job.queue)
+            run_script.write("#SBATCH -t %s             # run time ",
+                             "(hh:mm:ss)\n" % job.time)
             if self.email is not None:
                 run_script.write("#SBATCH --mail-user=%s" % self.email)
-                run_script.write("#SBATCH --mail-type=begin       # email me when the job starts\n")
-                run_script.write("#SBATCH --mail-type=end         # email me when the job finishes\n")
+                run_script.write("#SBATCH --mail-type=begin       # email me",
+                                 " when the job starts\n")
+                run_script.write("#SBATCH --mail-type=end         # email me",
+                                 " when the job finishes\n")
             run_script.write("\n")
             run_script.write("# OpenMP controls\n")
-            run_script.write("export OMP_NUM_THREADS=%s\n" % job.omp_num_threads)
-            run_script.write("export MIC_ENV_PREFIX=MIC")
-            run_script.write("export MIC_OMP_NUM_THREADS=%s\n" % job.mic_omp_num_threads)
-            run_script.write("export MIC_KMP_AFFINITY=%s\n" % job.mic_affinity)
+            run_script.write("export OMP_NUM_THREADS=%s\n"
+                             % job.omp_num_threads)
             run_script.write("\n")
             run_script.write("# Run command\n")
-            run_script.write(run_cmd)
+            run_script.write(cmd)
 
             run_script.close()
 
             # Submit job to queue
             subprocess.Popen("sbatch %s > %s" % (run_script_path, log_path),
-                                                 shell=True).wait()
+                             shell=True).wait()
 
         # -- All jobs have been started --
 
