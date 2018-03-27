@@ -38,7 +38,7 @@ class HabaneroJob(batch.Job):
         # self.mic_affinity = "none"
         self.time = "12:00:00"
         # TODO:  check to see what the queue should be
-        self.queue = "serial"
+        self.queue = None
 
 
 class HabaneroBatchController(batch.BatchController):
@@ -148,21 +148,23 @@ class HabaneroBatchController(batch.BatchController):
             run_script = open(run_script_path, 'w')
 
             run_script.write("#!/bin/sh\n")
+            run_script.write("#SBATCH --account=%s" % job.account)
             run_script.write("#SBATCH -J %s        # Job name\n" % job.prefix)
             run_script.write("#SBATCH -o %s        # Job name\n" % log_path)
-            run_script.write("#SBATCH -n 1         # Total number of MPI ",
+            run_script.write("#SBATCH -n 1         # Total number of MPI "
                              "tasks requested\n")
-            run_script.write("#SBATCH -N 1         # Total number of MPI ",
+            run_script.write("#SBATCH -N 1         # Total number of MPI "
                              "tasks requested\n")
-            run_script.write("#SBATCH -p %s               # queue\n"
-                             % job.queue)
-            run_script.write("#SBATCH -t %s             # run time ",
+            if job.queue is not None:
+                run_script.write("#SBATCH -p %s               # queue\n"
+                                 % job.queue)
+            run_script.write("#SBATCH -t %s             # run time "
                              "(hh:mm:ss)\n" % job.time)
             if self.email is not None:
                 run_script.write("#SBATCH --mail-user=%s" % self.email)
-                run_script.write("#SBATCH --mail-type=begin       # email me",
+                run_script.write("#SBATCH --mail-type=begin       # email me"
                                  " when the job starts\n")
-                run_script.write("#SBATCH --mail-type=end         # email me",
+                run_script.write("#SBATCH --mail-type=end         # email me"
                                  " when the job finishes\n")
             run_script.write("\n")
             run_script.write("# OpenMP controls\n")
