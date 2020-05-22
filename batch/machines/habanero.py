@@ -1,7 +1,7 @@
-r"""Batch sub-classes for runs on the Columbia Habanero machine (SLURM)"""
+r"""Batch sub-classes for runs on the Columbia's Habanero machine (SLURM)"""
 
 # ============================================================================
-#      Copyright (C) 2018 Kyle Mandli <kyle.mandli@columbia.edu>
+#      Copyright (C) Kyle Mandli <kyle.mandli@columbia.edu>
 #
 #          Distributed under the terms of the MIT license
 #                http://www.opensource.org/licenses/

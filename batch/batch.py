@@ -4,7 +4,7 @@ Includes support for multiple runs at the same time
 
 """
 # ============================================================================
-#      Copyright (C) 2013 Kyle Mandli <kyle@ices.utexas.edu>
+#      Copyright (C) Kyle Mandli <kyle.mandli@columbia.edu>
 #
 #          Distributed under the terms of the MIT license
 #                http://www.opensource.org/licenses/
@@ -19,7 +19,7 @@ import time
 import glob
 
 
-class Job(object):
+class Job(object+):
     r"""Base object for all jobs
 
     The ``type``, ``name``, and ``prefix`` attributes are used by the
