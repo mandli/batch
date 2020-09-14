@@ -346,7 +346,7 @@ class BatchController(object):
             if self.plot:
                 cmd = ";".join((cmd, plot_cmd))
                 if self.tar:
-                    cmd = ";".join((cmd, star_cmd))
+                    cmd = ";".join((cmd, tar_cmd))
 
             # Run jobs
             if self.parallel:
