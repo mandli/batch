@@ -15,7 +15,7 @@ days2seconds = lambda days: days * 60.0**2 * 24.0
 class StormJob(batch.batch.job):
     r""""""
 
-    def __init__(self, ensemble, storm_num, base_path='./', storms_path='./'):
+    def __init__(self, storm_num, base_path='./', storms_path='./'):
 
         super(StormJob, self).__init__()
 
@@ -30,7 +30,6 @@ class StormJob(batch.batch.job):
         self.rundata = setrun.setrun()
 
         # Storm specific data
-        self.ensemble = ensemble
         self.storm_file_path = os.path.join(storms_path
                                os.path.abspath("./%s.storm" % storm_num))
 
