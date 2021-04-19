@@ -36,6 +36,10 @@ class StormJob(batch.batch.job):
         # Set storm file
         self.rundata.storm_data.storm_file = self.storm_file_path
 
+        # Change time frame of simulation...
+        # self.rundata.clawdata.t0 = days2seconds()
+        # self.rundata.clawdata.tfinal = days2seconds()
+
 
     def __str__(self):
         output = super(StormJob, self).__str__()
@@ -48,3 +52,6 @@ class StormJob(batch.batch.job):
 
         # Write out all data files
         super(StormJob, self).write_data_objects()
+
+        # If any additional information per storm is needed do it here
+        # ...
