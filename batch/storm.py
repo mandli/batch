@@ -30,8 +30,8 @@ class StormJob(batch.batch.job):
         self.rundata = setrun.setrun()
 
         # Storm specific data
-        self.storm_file_path = os.path.join(storms_path
-                               os.path.abspath("./%s.storm" % storm_num))
+        self.storm_file_path = os.path.abspath(os.path.join(storms_path, 
+                                                        "%s.storm" % storm_num))
 
         # Set storm file
         self.rundata.storm_data.storm_file = self.storm_file_path
