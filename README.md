@@ -48,7 +48,7 @@ from pathlib import Path
 import importlib.util
 from batch import Job
 
-class MyGeoCLawJob(Job):
+class MyGeoClawJob(Job):
     def __init__(self, manning: float) -> None:
         super().__init__()
         self.prefix = f"n{manning:.3f}"
@@ -70,7 +70,7 @@ class MyGeoCLawJob(Job):
 ```python
 from batch import BatchController, ParallelExecutor
 
-jobs = [MyGeoCLawJob(manning=n) for n in [0.020, 0.025, 0.030]]
+jobs = [MyGeoClawJob(manning=n) for n in [0.020, 0.025, 0.030]]
 
 ctrl = BatchController(
     jobs=jobs,
@@ -152,7 +152,7 @@ ctrl.run(wait=False)
 from batch.sweep import product_sweep
 
 jobs = product_sweep(
-    factory=lambda manning, level: MyGeoCLawJob(manning, max_level=level),
+    factory=lambda manning, level: MyGeoClawJob(manning, max_level=level),
     namer=lambda p: f"n{p['manning']:.3f}_l{p['level']}",
     manning=[0.020, 0.025, 0.030],
     level=[4, 5],
@@ -201,11 +201,12 @@ Override `build()` when a job requires compiling the executable before
 submission.  The no-op default is used when all jobs share a pre-built binary.
 
 ```python
-import shutil, subprocess
+import shutil
+import subprocess
 from batch import Job, JobPaths
 
 class CompiledJob(Job):
-    def __init__(self, source_path, ...):
+    def __init__(self, source_path):
         super().__init__()
         self.source_path = source_path
 

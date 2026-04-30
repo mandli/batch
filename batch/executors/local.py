@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 import sys
 import time
-from pathlib import Path
 
 from batch.job import Job, JobPaths, JobResult
 
@@ -26,13 +26,15 @@ def _build_run_args(job: Job, paths: JobPaths) -> list[str]:
     ``paths.job``.
     """
     return [
-        sys.executable, "-m", "clawpack.clawutil.runclaw",
+        sys.executable,
+        "-m",
+        "clawpack.clawutil.runclaw",
         str(job.executable),
-        str(paths.job),               # outdir
+        str(paths.job),  # outdir
         "F" if job.restart else "T",  # overwrite
         "T" if job.restart else "F",  # restart
-        str(paths.job),               # rundir (same directory)
-        "True",                       # verbose
+        str(paths.job),  # rundir (same directory)
+        "True",  # verbose
     ]
 
 
@@ -54,6 +56,7 @@ class SerialExecutor:
         self.extra_args = extra_args or []
 
     def submit(self, job: Job, paths: JobPaths) -> JobResult:
+        """Run the job synchronously and return its result."""
         args = _build_run_args(job, paths) + self.extra_args
         logger.info("Running job %s: %s", job.prefix, " ".join(args))
         with open(paths.log, "a") as log:
@@ -63,7 +66,7 @@ class SerialExecutor:
         return JobResult(job=job, paths=paths, returncode=proc.returncode)
 
     def wait_all(self, results: list[JobResult]) -> list[JobResult]:
-        # All jobs already completed in submit(); nothing to do.
+        """No-op — all jobs already completed in ``submit``."""
         return results
 
 
@@ -76,9 +79,10 @@ class ParallelExecutor:
     Parameters
     ----------
     max_workers:
-        Maximum number of simultaneous subprocesses.  Defaults to 4.
-        Set this to the number of independent jobs you want in flight at once,
-        not to the number of OpenMP threads per job.
+        Maximum number of simultaneous subprocesses.  Defaults to the value
+        of the ``BATCH_MAX_JOBS`` environment variable, or 4 if that is not
+        set.  Set this to the number of independent jobs you want in flight
+        at once, not to the number of OpenMP threads per job.
     poll_interval:
         Seconds between queue drain checks.  Default 5.0.
     extra_args:
@@ -87,7 +91,7 @@ class ParallelExecutor:
 
     def __init__(
         self,
-        max_workers: int = 4,
+        max_workers: int = int(os.environ.get("BATCH_MAX_JOBS", 4)),
         poll_interval: float = 5.0,
         extra_args: list[str] | None = None,
     ) -> None:
@@ -127,7 +131,8 @@ class ParallelExecutor:
                 if rc != 0:
                     logger.error(
                         "Job %s exited with returncode=%d",
-                        result.job.prefix, rc,
+                        result.job.prefix,
+                        rc,
                     )
                 else:
                     logger.info("Job %s complete", result.job.prefix)

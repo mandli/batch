@@ -6,10 +6,9 @@ import logging
 import subprocess
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from batch.job import Job, JobPaths, JobResult
 from batch.executors.local import _build_run_args
+from batch.job import Job, JobPaths, JobResult
 
 logger = logging.getLogger(__name__)
 
@@ -182,9 +181,7 @@ class SLURMExecutor:
 
         if self.dry_run:
             logger.info("[dry-run] Would submit: %s", script_path)
-            return JobResult(
-                job=job, paths=paths, returncode=None, job_id="dry-run"
-            )
+            return JobResult(job=job, paths=paths, returncode=None, job_id="dry-run")
 
         proc = subprocess.run(
             ["sbatch", "--parsable", str(script_path)],
@@ -199,11 +196,7 @@ class SLURMExecutor:
 
     def wait_all(self, results: list[JobResult]) -> list[JobResult]:
         """Poll squeue until all submitted jobs leave the queue."""
-        pending = {
-            r.job_id: r
-            for r in results
-            if r.job_id and r.job_id != "dry-run"
-        }
+        pending = {r.job_id: r for r in results if r.job_id and r.job_id != "dry-run"}
         while pending:
             time.sleep(self.poll_interval)
             completed = []

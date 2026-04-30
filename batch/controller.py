@@ -7,8 +7,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from batch.job import ClobberPolicy, Job, JobPaths, JobResult
 from batch.executors import Executor
+from batch.job import ClobberPolicy, Job, JobPaths, JobResult
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,7 @@ class BatchController:
 
         if executor is None:
             from batch.executors.local import ParallelExecutor
+
             executor = ParallelExecutor()
         self.executor: Executor = executor
 
@@ -192,8 +193,7 @@ class BatchController:
             self.executor.wait_all(results)
 
         failures = [
-            r for r in results
-            if r.returncode is not None and r.returncode != 0
+            r for r in results if r.returncode is not None and r.returncode != 0
         ]
         if failures:
             logger.warning(

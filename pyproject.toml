@@ -16,10 +16,20 @@ dependencies = []
 dev = [
     "pytest>=7",
     "pytest-cov",
+    "ruff",
 ]
 lint = [
     "ruff",
 ]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+# from __future__ import annotations is intentional for forward reference support;
+# silence the pyupgrade rule that would remove it on Python >= 3.10.
+ignore = ["UP015"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["batch"]

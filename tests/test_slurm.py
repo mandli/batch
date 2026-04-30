@@ -35,6 +35,7 @@ def minimal_resources() -> SLURMResources:
 # render_slurm_script — directive correctness
 # ---------------------------------------------------------------------------
 
+
 class TestRenderSlurmScript:
     def test_starts_with_shebang(self, paths, minimal_resources):
         job = MockJob(prefix="job_001")
@@ -100,9 +101,7 @@ class TestRenderSlurmScript:
 
     def test_email_directives_when_set(self, paths):
         job = MockJob(prefix="job_001")
-        resources = SLURMResources(
-            email="user@example.com", mail_type="END,FAIL"
-        )
+        resources = SLURMResources(email="user@example.com", mail_type="END,FAIL")
         script = render_slurm_script(job, paths, resources)
         assert "#SBATCH --mail-user=user@example.com" in script
         assert "#SBATCH --mail-type=END,FAIL" in script
@@ -156,7 +155,7 @@ class TestRenderSlurmScript:
             default_resources=SLURMResources(partition="main", time="01:00:00"),
             dry_run=True,
         )
-        result = executor.submit(job, paths)
+        executor.submit(job, paths)
         script = (paths.job / "job_001_run.sh").read_text()
         assert "#SBATCH -p gpu" in script
         assert "#SBATCH -t 04:00:00" in script
@@ -166,30 +165,26 @@ class TestRenderSlurmScript:
 # SLURMExecutor dry_run
 # ---------------------------------------------------------------------------
 
+
 class TestSLURMExecutorDryRun:
     def test_dry_run_writes_script_file(self, paths, minimal_resources):
         job = MockJob(prefix="job_001")
-        executor = SLURMExecutor(
-            default_resources=minimal_resources, dry_run=True
-        )
-        result = executor.submit(job, paths)
+        executor = SLURMExecutor(default_resources=minimal_resources, dry_run=True)
+        executor.submit(job, paths)
         assert (paths.job / "job_001_run.sh").exists()
 
     def test_dry_run_returns_dry_run_job_id(self, paths, minimal_resources):
         job = MockJob(prefix="job_001")
-        executor = SLURMExecutor(
-            default_resources=minimal_resources, dry_run=True
-        )
+        executor = SLURMExecutor(default_resources=minimal_resources, dry_run=True)
         result = executor.submit(job, paths)
         assert result.job_id == "dry-run"
         assert result.returncode is None
 
     def test_dry_run_does_not_call_sbatch(self, paths, minimal_resources):
         from unittest.mock import patch
+
         job = MockJob(prefix="job_001")
-        executor = SLURMExecutor(
-            default_resources=minimal_resources, dry_run=True
-        )
+        executor = SLURMExecutor(default_resources=minimal_resources, dry_run=True)
         with patch("batch.executors.slurm.subprocess.run") as mock_run:
             executor.submit(job, paths)
         mock_run.assert_not_called()
@@ -197,10 +192,9 @@ class TestSLURMExecutorDryRun:
     def test_wait_all_skips_dry_run_jobs(self, paths, minimal_resources):
         """wait_all should not poll squeue for dry-run job IDs."""
         from unittest.mock import patch
+
         job = MockJob(prefix="job_001")
-        executor = SLURMExecutor(
-            default_resources=minimal_resources, dry_run=True
-        )
+        executor = SLURMExecutor(default_resources=minimal_resources, dry_run=True)
         result = executor.submit(job, paths)
         with patch("batch.executors.slurm.subprocess.run") as mock_run:
             executor.wait_all([result])

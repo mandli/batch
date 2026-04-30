@@ -41,19 +41,33 @@ class JobPaths:
     tarred or discarded independently.
     """
 
-    job: Path    # root directory — data files and fort.* output go here
+    job: Path  # root directory — data files and fort.* output go here
     plots: Path  # plots subdirectory
-    log: Path    # per-job log file
+    log: Path  # per-job log file
 
 
 @dataclass
 class JobResult:
-    """Outcome record for a single submitted job."""
+    """Outcome record for a single submitted job.
+
+    Attributes
+    ----------
+    job:
+        The job that was submitted.
+    paths:
+        Filesystem layout computed by the controller for this job.
+    returncode:
+        Process exit code.  ``None`` until the job completes; this is the
+        normal state for scheduler-submitted jobs when ``wait=False``.
+    job_id:
+        Scheduler-assigned job identifier (e.g. a SLURM job number).
+        ``None`` for local executors.
+    """
 
     job: Job
     paths: JobPaths
-    returncode: int | None  # None until the job completes (scheduler backends)
-    job_id: str | None = None  # scheduler job ID when submitted to a queue
+    returncode: int | None
+    job_id: str | None = None
 
     @property
     def success(self) -> bool:

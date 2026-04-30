@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from batch.sweep import product_sweep, zip_sweep
 from batch.job import Job
+from batch.sweep import product_sweep, zip_sweep
 from tests.conftest import MockJob
 
 
@@ -23,6 +23,7 @@ def simple_namer(params: dict) -> str:
 # ---------------------------------------------------------------------------
 # product_sweep
 # ---------------------------------------------------------------------------
+
 
 class TestProductSweep:
     def test_cartesian_product_count(self):
@@ -91,6 +92,7 @@ class TestProductSweep:
 # ---------------------------------------------------------------------------
 # zip_sweep
 # ---------------------------------------------------------------------------
+
 
 class TestZipSweep:
     def test_paired_count(self):

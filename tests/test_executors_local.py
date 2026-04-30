@@ -8,9 +8,8 @@ from __future__ import annotations
 
 import subprocess
 import sys
-import time
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -19,7 +18,7 @@ from batch.executors.local import (
     SerialExecutor,
     _build_run_args,
 )
-from batch.job import Job, JobPaths, JobResult
+from batch.job import JobPaths, JobResult
 from tests.conftest import MockJob
 
 
@@ -38,6 +37,7 @@ def paths(tmp_path: Path) -> JobPaths:
 # _build_run_args
 # ---------------------------------------------------------------------------
 
+
 class TestBuildRunArgs:
     def test_uses_sys_executable(self, paths):
         job = MockJob(prefix="job_001")
@@ -50,8 +50,8 @@ class TestBuildRunArgs:
         assert args[1:3] == ["-m", "clawpack.clawutil.runclaw"]
 
     def test_overwrite_flag_when_not_restarting(self, paths):
-        # args: [python, -m, clawpack.clawutil.runclaw, exe, outdir, overwrite, restart, rundir, verbose]
-        #         0      1   2                           3    4       5          6        7       8
+        # args: [python, -m, runclaw, exe, outdir, overwrite, restart, rundir, verbose]
+        #         0       1   2        3    4       5          6        7       8
         job = MockJob(prefix="job_001")
         job.restart = False
         args = _build_run_args(job, paths)
@@ -76,6 +76,7 @@ class TestBuildRunArgs:
 # ---------------------------------------------------------------------------
 # SerialExecutor
 # ---------------------------------------------------------------------------
+
 
 class TestSerialExecutor:
     def test_submit_returns_success_result(self, paths):
@@ -111,7 +112,7 @@ class TestSerialExecutor:
         result = JobResult(job=job, paths=paths, returncode=0)
         executor = SerialExecutor()
         returned = executor.wait_all([result])
-        assert returned is [result] or returned == [result]
+        assert returned == [result] or returned == [result]
 
     def test_extra_args_appended(self, paths):
         job = MockJob(prefix="job_001")
@@ -133,6 +134,7 @@ class TestSerialExecutor:
 # ---------------------------------------------------------------------------
 # ParallelExecutor._drain — the core correctness test
 # ---------------------------------------------------------------------------
+
 
 class TestParallelExecutorDrain:
     """Test _drain without actually spawning processes."""
@@ -204,5 +206,6 @@ class TestParallelExecutorDrain:
         executor._drain()
 
         assert executor._active == [], "all completed processes should be drained"
-        assert all(r.returncode == 0 for r in results), \
+        assert all(r.returncode == 0 for r in results), (
             "all results should have their returncode set"
+        )

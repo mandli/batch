@@ -2,19 +2,18 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from batch.controller import BatchController
-from batch.job import ClobberPolicy, Job, JobPaths, JobResult
+from batch.job import ClobberPolicy, JobResult
 from tests.conftest import MockJob
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_stub_executor(returncode: int = 0):
     """Return a mock Executor whose submit() returns a successful JobResult."""
@@ -33,6 +32,7 @@ def make_stub_executor(returncode: int = 0):
 # ---------------------------------------------------------------------------
 # _make_paths
 # ---------------------------------------------------------------------------
+
 
 class TestMakePaths:
     def test_paths_under_base(self, tmp_path):
@@ -60,6 +60,7 @@ class TestMakePaths:
 # ---------------------------------------------------------------------------
 # _setup_job_dir — clobber policies
 # ---------------------------------------------------------------------------
+
 
 class TestSetupJobDir:
     def test_overwrite_creates_directory(self, tmp_path):
@@ -135,6 +136,7 @@ class TestSetupJobDir:
 # setup()
 # ---------------------------------------------------------------------------
 
+
 class TestSetup:
     def test_setup_creates_directories_and_data_files(self, tmp_path, three_jobs):
         ctrl = BatchController(
@@ -187,6 +189,7 @@ class TestSetup:
 # ---------------------------------------------------------------------------
 # run()
 # ---------------------------------------------------------------------------
+
 
 class TestRun:
     def test_run_calls_submit_for_each_job(self, tmp_path, three_jobs):
@@ -260,6 +263,7 @@ class TestRun:
 
     def test_run_logs_warning_on_failures(self, tmp_path, mock_job, caplog):
         import logging
+
         executor = make_stub_executor(returncode=1)
         ctrl = BatchController(
             jobs=[mock_job],
