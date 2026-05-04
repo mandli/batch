@@ -67,8 +67,10 @@ class TestPlotJob:
     def test_plot_job_callable_setplot_uses_inprocess_fallback(self, job_paths):
         job = MockJob(prefix="job_001")
         result = JobResult(job=job, paths=job_paths, returncode=0)
+
         def setplot_fn():
             pass
+
         with patch("batch.plot._plot_inprocess", return_value=True) as mock_inproc:
             with patch("batch.plot.subprocess.run") as mock_run:
                 plot_job(result, setplot=setplot_fn)
@@ -80,11 +82,14 @@ class TestPlotInprocess:
     def test_plot_inprocess_returns_false_when_visclaw_not_importable(self, job_paths):
         job = MockJob(prefix="job_001")
         result = JobResult(job=job, paths=job_paths, returncode=0)
-        with patch.dict(sys.modules, {
-            "clawpack": MagicMock(),
-            "clawpack.visclaw": MagicMock(),
-            "clawpack.visclaw.plotclaw": None,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "clawpack": MagicMock(),
+                "clawpack.visclaw": MagicMock(),
+                "clawpack.visclaw.plotclaw": None,
+            },
+        ):
             assert _plot_inprocess(result, "setplot.py", "ascii") is False
 
     def test_plot_inprocess_returns_false_on_exception(self, job_paths):
@@ -92,11 +97,14 @@ class TestPlotInprocess:
         result = JobResult(job=job, paths=job_paths, returncode=0)
         mock_module = MagicMock()
         mock_module.plotclaw = MagicMock(side_effect=RuntimeError("boom"))
-        with patch.dict(sys.modules, {
-            "clawpack": MagicMock(),
-            "clawpack.visclaw": MagicMock(),
-            "clawpack.visclaw.plotclaw": mock_module,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "clawpack": MagicMock(),
+                "clawpack.visclaw": MagicMock(),
+                "clawpack.visclaw.plotclaw": mock_module,
+            },
+        ):
             assert _plot_inprocess(result, "setplot.py", "ascii") is False
 
     def test_plot_inprocess_returns_true_on_success(self, job_paths):
@@ -104,9 +112,12 @@ class TestPlotInprocess:
         result = JobResult(job=job, paths=job_paths, returncode=0)
         mock_module = MagicMock()
         mock_module.plotclaw = MagicMock()
-        with patch.dict(sys.modules, {
-            "clawpack": MagicMock(),
-            "clawpack.visclaw": MagicMock(),
-            "clawpack.visclaw.plotclaw": mock_module,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "clawpack": MagicMock(),
+                "clawpack.visclaw": MagicMock(),
+                "clawpack.visclaw.plotclaw": mock_module,
+            },
+        ):
             assert _plot_inprocess(result, "setplot.py", "ascii") is True

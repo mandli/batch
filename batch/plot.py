@@ -86,7 +86,8 @@ def plot_job(
 
     args = [
         sys.executable,
-        "-m", "clawpack.visclaw.plotclaw",
+        "-m",
+        "clawpack.visclaw.plotclaw",
         str(result.paths.job),
         str(result.paths.plots),
         setplot_arg,

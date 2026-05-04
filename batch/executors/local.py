@@ -56,9 +56,7 @@ class SerialExecutor:
     """
 
     def __init__(
-        self,
-        extra_args: list[str] | None = None,
-        env: dict[str, str] | None = None
+        self, extra_args: list[str] | None = None, env: dict[str, str] | None = None
     ) -> None:
         self.extra_args = extra_args or []
         self.env = env or {}
@@ -154,7 +152,9 @@ class ParallelExecutor:
                 if rc != 0:
                     logger.error(
                         "Job %s failed (rc=%d) — last 10 lines of %s:",
-                        result.job.prefix, rc, result.paths.log,
+                        result.job.prefix,
+                        rc,
+                        result.paths.log,
                     )
                     # Emit the tail of the log so failures are visible
                     try:
@@ -174,7 +174,6 @@ class ParallelExecutor:
             else:
                 still_running.append((proc, result, log_fh))
         self._active = still_running
-
 
     def wait_all(self, results: list[JobResult]) -> list[JobResult]:
         """Block until all in-flight jobs finish."""

@@ -60,6 +60,7 @@ logging.basicConfig(
 # Job definition
 # ---------------------------------------------------------------------------
 
+
 class StormJob(Job):
     """One GeoClaw storm-surge simulation driven by a single ``.storm`` file.
 
@@ -123,6 +124,7 @@ class StormJob(Job):
 # ---------------------------------------------------------------------------
 # Run script
 # ---------------------------------------------------------------------------
+
 
 def make_jobs(storms_path: Path, setrun_path: Path) -> list[StormJob]:
     """Build jobs for storms 1–100."""

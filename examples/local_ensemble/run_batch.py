@@ -82,18 +82,14 @@ def plot_ensemble(results: list) -> None:
     for r in successful:
         gauge_file = r.paths.job / "fort.gauge"
         if not gauge_file.exists():
-            logger.warning(
-                "fort.gauge not found for %s, skipping.", r.job.prefix
-            )
+            logger.warning("fort.gauge not found for %s, skipping.", r.job.prefix)
             continue
         try:
             data = np.loadtxt(gauge_file)
             # fort.gauge columns: gauge_num, level, time, q[0], q[1], q[2], eta
             ax.plot(data[:, 2], data[:, 6], label=r.job.prefix)
         except Exception as exc:
-            logger.warning(
-                "Failed to load gauge data for %s: %s", r.job.prefix, exc
-            )
+            logger.warning("Failed to load gauge data for %s: %s", r.job.prefix, exc)
 
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Surface elevation (m)")

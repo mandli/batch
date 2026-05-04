@@ -66,7 +66,6 @@ class ManningJob(Job):
     def post_run(self, result) -> None:
         plot_job(result, setplot=Path(__file__).parent / "setplot.py")
 
-
     def __repr__(self) -> str:
         return (
             f"ManningJob(prefix={self.prefix!r}, "
