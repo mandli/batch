@@ -89,6 +89,8 @@ class StormJob(Job):
         if setrun_path is None:
             setrun_path = Path(__file__).parent / "setrun.py"
 
+        # Use clawutil's fullpath_import if available:
+        # mod = clawutil.fullpath_import(setrun_path)
         spec = importlib.util.spec_from_file_location("setrun", setrun_path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
