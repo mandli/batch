@@ -21,8 +21,8 @@ try:
 except ImportError:
     _HAS_SETRUN = False
 
-from batch import Job, JobPaths
-
+from batch import Job
+from batch.plot import plot_job
 
 class ManningJob(Job):
     """One GeoClaw run with a specific uniform Manning's n coefficient.
@@ -70,6 +70,10 @@ class ManningJob(Job):
 
         # Override the maximum refinement level
         self.rundata.amrdata.amr_levels_max = max_level
+
+    def post_run(self, result) -> None:
+        plot_job(result, setplot=Path(__file__).parent / "setplot.py")
+
 
     def __repr__(self) -> str:
         return (
