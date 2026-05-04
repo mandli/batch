@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- `Job.post_run(result)`: hook called after successful job completion.
+  No-op default; override for per-job plotting or data conversion.
+  Fires concurrently with remaining jobs in ParallelExecutor.
+  Exceptions in post_run are logged and do not abort the batch.
+- `batch.plot.plot_job`: runs plotclaw as a subprocess, capturing all
+  output (including C-level I/O) to the job log file. Callable setplot
+  falls back to in-process with a logged warning.
+
 ## [2.0.0] — breaking API change
 
 Tagged as v2.  The v1 API (original `batch.py`, `stampede.py`) is preserved

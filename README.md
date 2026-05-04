@@ -26,14 +26,15 @@ listed as a hard dependency (it is assumed to be present in the environment).
 
 ## Core concepts
 
-| Class | Role |
+| Class / Function | Role |
 |---|---|
-| `Job` | Describes one simulation: `prefix`, `executable`, `rundata`, optional `build()` override |
+| `Job` | Describes one simulation: `prefix`, `executable`, `rundata`, optional `build()` / `post_run()` overrides |
 | `BatchController` | Orchestrates directory setup, data writing, and dispatch |
 | `Executor` | Protocol implemented by `SerialExecutor`, `ParallelExecutor`, `SLURMExecutor` |
 | `JobPaths` | Typed paths for one job's directory, plots, and log |
 | `JobResult` | Return value from `run()`: job, paths, returncode, scheduler job ID |
 | `ClobberPolicy` | Controls what happens when output already exists: `OVERWRITE`, `ERROR`, `SKIP` |
+| `plot_job` | Calls plotclaw in-process after job completion; handles missing visclaw gracefully |
 
 ---
 
@@ -48,6 +49,8 @@ from pathlib import Path
 import importlib.util
 from batch import Job
 
+import clawpack.clawutil.util as clawutil
+
 class MyGeoClawJob(Job):
     def __init__(self, manning: float) -> None:
         super().__init__()
@@ -55,11 +58,9 @@ class MyGeoClawJob(Job):
         self.executable = "xgeoclaw"
         self.manning = manning
 
-        # Load base configuration from a local setrun.py
-        spec = importlib.util.spec_from_file_location("setrun", "setrun.py")
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        self.rundata = mod.setrun()
+        # Load base configuration from a local setrun.py - requires clawpack
+        setrun = clawutil.fullpath_import(setrun_path)
+        self.rundata = setrun.setrun()
 
         # Apply parameter override
         self.rundata.geo_data.manning_coefficient = manning
@@ -222,13 +223,57 @@ the login node, which is the correct behavior.
 
 ---
 
+## Per-job postprocessing
+
+Override `post_run(result)` to run plotting, data conversion, or any other
+work immediately after a job completes successfully.  The default is a no-op.
+`post_run` receives a `JobResult` giving access to `result.paths` and
+`result.returncode`.  For `ParallelExecutor` it fires as each job is
+harvested in `_drain`, so postprocessing for a finished job runs concurrently
+with jobs still in flight.  For `SLURMExecutor` it fires as each job leaves
+the queue in `wait_all`.  Exceptions raised inside `post_run` are logged and
+swallowed — a failing postprocessing step never aborts the batch loop.
+
+Use `plot_job` for the common case of running plotclaw after a job completes.
+It runs plotclaw as a subprocess so all output — including C-level output from
+matplotlib — is captured to the job's log file rather than the terminal; a
+`--- plotclaw ---` separator is written to the log between solver and plotting
+output.  It resolves relative setplot paths against the job directory and
+returns `False` gracefully when visclaw is not installed rather than raising.
+
+```python
+from pathlib import Path
+from batch import Job
+from batch import plot_job
+
+class MyJob(Job):
+    def post_run(self, result) -> None:
+        plot_job(result, setplot=Path(__file__).parent / "setplot.py")
+```
+
+For cross-run analysis, use the `results` list returned by `ctrl.run()`.
+Each element is a `JobResult` with `.success`, `.paths`, and `.job`; filter to
+`r.success` and iterate to load output files, compute statistics, or produce
+comparison plots spanning the full ensemble.  This is the right place for
+anything that needs data from more than one job at once.
+
+```python
+results = ctrl.run(wait=True)
+successful = [r for r in results if r.success]
+# load fort.gauge, compute metrics, write ensemble_comparison.png …
+```
+
+---
+
 ## Environment variables
 
 | Variable | Effect |
 |---|---|
 | `OUTPUT_PATH` | Base directory for all job output (default: cwd) |
 | `BATCH_MAX_JOBS` | Default `max_workers` for `ParallelExecutor` (default: 4) |
+| `OMP_NUM_THREADS` | Number of threads to allow OpenMP (default: environment variable or 1). |
 
+**Note:** The value `BATCH_MAX_JOBS` x `OMP_NUM_THREADS` should not exceed the physical core count or you may run into swapping/contention problems.  For example, a 16-core machine one could do `BATCH_MAX_JOBS = 2` and `OMP_NUM_THREADS=8`.  For the `SLURMExecutor` or any other HPC environment this will not be an issue and the maximum number of cores available should be used. 
 ---
 
 ## Examples

@@ -14,6 +14,7 @@ from batch.controller import BatchController
 from batch.executors.local import ParallelExecutor, SerialExecutor
 from batch.executors.slurm import SLURMExecutor, SLURMResources
 from batch.job import ClobberPolicy, Job, JobPaths, JobResult
+from batch.plot import plot_job
 
 __version__ = "2.0.0"
 
@@ -27,4 +28,5 @@ __all__ = [
     "ParallelExecutor",
     "SLURMExecutor",
     "SLURMResources",
+    "plot_job",
 ]

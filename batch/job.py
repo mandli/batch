@@ -163,3 +163,20 @@ class Job:
             Paths object for this job, provided by the controller.
         """
         pass
+
+    def post_run(self, result: "JobResult") -> None:
+        """Called after a job completes successfully. No-op default.
+
+        Override to run plotting, data conversion, or any per-job
+        postprocessing. For ParallelExecutor this fires as each job is
+        harvested in _drain, concurrent with remaining running jobs.
+        For SLURM it fires as each job leaves the queue in wait_all.
+        Only called when result.success is True.
+
+        Parameters
+        ----------
+        result:
+            The completed job's result object, giving access to paths
+            and returncode.
+        """
+        pass

@@ -211,6 +211,13 @@ class SLURMExecutor:
                     # squeue exit code is non-zero for unknown job IDs on some
                     # clusters so we key on empty stdout rather than returncode.
                     pending[job_id].returncode = 0
+                    try:
+                        pending[job_id].job.post_run(pending[job_id])
+                    except Exception:
+                        logger.exception(
+                            "post_run failed for job %s",
+                            pending[job_id].job.prefix,
+                        )
                     logger.info(
                         "Job %s (SLURM %s) left the queue",
                         pending[job_id].job.prefix,
