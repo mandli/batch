@@ -33,11 +33,13 @@ from pathlib import Path
 
 # Use non-interactive backend so plotting works in batch without a display
 import matplotlib
+
 matplotlib.use("Agg")
+
+from manning_job import ManningJob
 
 from batch import BatchController, ClobberPolicy, ParallelExecutor
 from batch.sweep import product_sweep
-from manning_job import ManningJob
 
 logging.basicConfig(
     level=logging.INFO,
@@ -67,8 +69,8 @@ def plot_ensemble(results: list) -> None:
     file are skipped with a warning.  The figure is written next to the job
     directories as ``ensemble_comparison.png``.
     """
-    import numpy as np
     import matplotlib.pyplot as plt
+    import numpy as np
 
     logger = logging.getLogger(__name__)
     successful = [r for r in results if r.success]

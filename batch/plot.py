@@ -94,7 +94,7 @@ def plot_job(
 
     if verbose:
         logger.info("plotclaw args: %s", args)
-    
+
     with open(result.paths.log, "a") as log_fh:
         log_fh.write("\n--- plotclaw ---\n")
         log_fh.flush()

@@ -41,9 +41,13 @@ import importlib.util
 import logging
 from pathlib import Path
 
-from batch import BatchController, ClobberPolicy, Job, JobPaths
-from batch import SLURMExecutor, SLURMResources
-from batch.sweep import zip_sweep
+from batch import (
+    BatchController,
+    ClobberPolicy,
+    Job,
+    SLURMExecutor,
+    SLURMResources,
+)
 
 logging.basicConfig(
     level=logging.INFO,

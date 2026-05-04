@@ -10,19 +10,12 @@ Clawpack installation to import, though running the batch will.
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
-
-
-# Guard the Clawpack import so this file can be imported in test environments
-# that do not have Clawpack installed.
-try:
-    import setrun as _setrun_module  # local setrun.py in this directory
-    _HAS_SETRUN = True
-except ImportError:
-    _HAS_SETRUN = False
 
 from batch import Job
 from batch.plot import plot_job
+
 
 class ManningJob(Job):
     """One GeoClaw run with a specific uniform Manning's n coefficient.
@@ -58,7 +51,6 @@ class ManningJob(Job):
         if setrun_path is None:
             setrun_path = Path(__file__).parent / "setrun.py"
 
-        import importlib.util, sys
         spec = importlib.util.spec_from_file_location("setrun", setrun_path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)

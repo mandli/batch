@@ -56,7 +56,7 @@ class SerialExecutor:
     """
 
     def __init__(
-        self, 
+        self,
         extra_args: list[str] | None = None,
         env: dict[str, str] | None = None
     ) -> None:
@@ -174,7 +174,7 @@ class ParallelExecutor:
             else:
                 still_running.append((proc, result, log_fh))
         self._active = still_running
-        
+
 
     def wait_all(self, results: list[JobResult]) -> list[JobResult]:
         """Block until all in-flight jobs finish."""

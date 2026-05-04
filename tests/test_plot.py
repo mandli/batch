@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from batch.job import JobResult
 from batch.plot import _plot_inprocess, plot_job
@@ -70,7 +67,8 @@ class TestPlotJob:
     def test_plot_job_callable_setplot_uses_inprocess_fallback(self, job_paths):
         job = MockJob(prefix="job_001")
         result = JobResult(job=job, paths=job_paths, returncode=0)
-        setplot_fn = lambda: None
+        def setplot_fn():
+            pass
         with patch("batch.plot._plot_inprocess", return_value=True) as mock_inproc:
             with patch("batch.plot.subprocess.run") as mock_run:
                 plot_job(result, setplot=setplot_fn)
