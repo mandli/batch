@@ -6,6 +6,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- `PBSExecutor`, `PBSResources`, and `render_pbs_script()`: PBS Pro backend
+  (NCAR Derecho `qsub`/`qstat`), mirroring the SLURM backend.  Submits via
+  `qsub`, captures the job ID, polls `qstat` in `wait_all`.  Per-job override
+  by attaching `job.pbs_resources`.  `PBSResources.plot=True` appends a
+  `plotclaw` call so jobs self-plot on the compute node.  `render_pbs_script`
+  is a pure function, unit-tested without a cluster.
 - `Job.post_run(result)`: hook called after successful job completion.
   No-op default; override for per-job plotting or data conversion.
   Fires concurrently with remaining jobs in ParallelExecutor.

@@ -30,7 +30,7 @@ listed as a hard dependency (it is assumed to be present in the environment).
 |---|---|
 | `Job` | Describes one simulation: `prefix`, `executable`, `rundata`, optional `build()` / `post_run()` overrides |
 | `BatchController` | Orchestrates directory setup, data writing, and dispatch |
-| `Executor` | Protocol implemented by `SerialExecutor`, `ParallelExecutor`, `SLURMExecutor` |
+| `Executor` | Protocol implemented by `SerialExecutor`, `ParallelExecutor`, `SLURMExecutor`, `PBSExecutor` |
 | `JobPaths` | Typed paths for one job's directory, plots, and log |
 | `JobResult` | Return value from `run()`: job, paths, returncode, scheduler job ID |
 | `ClobberPolicy` | Controls what happens when output already exists: `OVERWRITE`, `ERROR`, `SKIP` |
@@ -134,13 +134,53 @@ Per-job resource overrides are supported without subclassing — attach a
 job.slurm_resources = SLURMResources(partition="gpu", time="12:00:00")
 ```
 
-### 4. Inspect scripts without submitting
+### 4. Run on PBS / Derecho
+
+NCAR Derecho runs PBS Pro (`qsub`/`qstat`).  `PBSExecutor` is the PBS analogue
+of `SLURMExecutor` — same submit-and-return semantics, same per-job override
+mechanism (attach `job.pbs_resources`), same `dry_run` flag.
 
 ```python
+from batch import BatchController, PBSExecutor, PBSResources
+
+executor = PBSExecutor(
+    default_resources=PBSResources(
+        queue="main",
+        nodes=1,
+        ncpus=128,          # Derecho CPU nodes have 128 cores
+        mpiprocs=1,         # pure-OpenMP GeoClaw → 1 MPI rank
+        ompthreads=128,
+        walltime="12:00:00",
+        account="NCAR0001",  # your Derecho project code (#PBS -A)
+        env_vars={"OMP_NUM_THREADS": "128"},
+        modules=["ncarenv/23.09", "conda"],
+    ),
+)
+
+ctrl = BatchController(
+    jobs=jobs,
+    executor=executor,
+    experiment="storm_ensemble",
+)
+# Returns immediately after qsub submission; job IDs in results
+results = ctrl.run(wait=False)
+for r in results:
+    print(f"  {r.job.prefix}  ->  PBS job {r.job_id}")
+```
+
+`PBSResources.plot=True` (with a `setplot` path) appends a `plotclaw` call to
+the generated script so each job produces its VisClaw frames on the compute
+node, avoiding a long-lived login-node process.  Monitor the queue with
+`qstat -u $USER`.
+
+### 5. Inspect scripts without submitting
+
+```python
+# SLURMExecutor and PBSExecutor both accept dry_run=True
 executor = SLURMExecutor(default_resources=resources, dry_run=True)
 ctrl = BatchController(jobs=jobs, executor=executor, experiment="test")
 ctrl.run(wait=False)
-# Scripts written to each job directory; sbatch not called
+# Scripts written to each job directory; sbatch/qsub not called
 ```
 
 ---

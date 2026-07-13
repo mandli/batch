@@ -10,9 +10,10 @@ from batch.job import Job, JobPaths, JobResult
 class Executor(Protocol):
     """Interface that all execution backends must satisfy.
 
-    Both :class:`~batch.executors.local.SerialExecutor` and
-    :class:`~batch.executors.local.ParallelExecutor` and
-    :class:`~batch.executors.slurm.SLURMExecutor` implement this protocol,
+    :class:`~batch.executors.local.SerialExecutor`,
+    :class:`~batch.executors.local.ParallelExecutor`,
+    :class:`~batch.executors.slurm.SLURMExecutor`, and
+    :class:`~batch.executors.pbs.PBSExecutor` all implement this protocol,
     as does any custom executor the caller provides.
     """
 
