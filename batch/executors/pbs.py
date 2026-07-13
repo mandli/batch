@@ -209,9 +209,7 @@ class PBSExecutor:
         self.poll_interval = poll_interval
 
     def submit(self, job: Job, paths: JobPaths) -> JobResult:
-        resources: PBSResources = getattr(
-            job, "pbs_resources", self.default_resources
-        )
+        resources: PBSResources = getattr(job, "pbs_resources", self.default_resources)
         script = render_pbs_script(job, paths, resources)
 
         script_path = paths.job / f"{job.prefix}_run.sh"

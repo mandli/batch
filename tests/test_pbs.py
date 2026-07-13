@@ -73,9 +73,7 @@ class TestRenderPBSScript:
         job = MockJob(prefix="job_001")
         resources = PBSResources(nodes=2, ncpus=128, mpiprocs=1, ompthreads=64)
         script = render_pbs_script(job, paths, resources)
-        assert (
-            "#PBS -l select=2:ncpus=128:mpiprocs=1:ompthreads=64" in script
-        )
+        assert "#PBS -l select=2:ncpus=128:mpiprocs=1:ompthreads=64" in script
 
     def test_mem_absent_when_empty(self, paths, minimal_resources):
         job = MockJob(prefix="job_001")
