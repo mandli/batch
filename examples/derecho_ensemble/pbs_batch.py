@@ -1,37 +1,43 @@
-"""Storm surge ensemble — SLURM submission example.
+"""Storm surge ensemble — PBS / NCAR Derecho submission example.
 
 Demonstrates:
 - Subclassing Job for storm-file-driven GeoClaw runs
-- Per-job SLURMResources override
-- SLURMExecutor with dry_run for script inspection
-- Building a job list directly (one job per storm number)
+- Per-job PBSResources override (attached to the job, no scheduler subclass)
+- PBSExecutor with dry_run for script inspection
+- Compute-node self-plotting via PBSResources(plot=True)
+
+This is the PBS analogue of ``examples/storm_surge/storm_batch.py`` — the Job
+definition is identical in spirit; only the resource object and executor differ.
 
 Directory layout produced::
 
     OUTPUT_PATH/
-      storm_ensemble/
-        00001/          ← one directory per storm
+      derecho_storm_ensemble/
+        00001/              ← one directory per storm
           00001_log.txt
-          00001_run.sh
+          00001_run.sh      ← the generated qsub script
           *.data
           fort.*
-          plots/
+          plots/            ← VisClaw frames (plot=True runs plotclaw on the node)
         00002/
           ...
 
 Usage
 -----
-Dry run (inspect generated scripts without submitting)::
+Dry run (write qsub scripts, do not submit — needs no scheduler)::
 
-    python run_batch.py --dry-run
+    python pbs_batch.py --dry-run
 
-Submit to SLURM::
+Submit to Derecho::
 
-    python run_batch.py
+    python pbs_batch.py --account NCAR0001
 
-Resume after partial completion::
+Resume after a partial / walltime-killed run::
 
-    python run_batch.py --resume
+    python pbs_batch.py --account NCAR0001 --resume
+
+Constructing the jobs calls ``setrun()``, which requires a Clawpack install and a
+``setrun.py`` in this directory; the module itself imports without Clawpack.
 """
 
 from __future__ import annotations
@@ -45,8 +51,8 @@ from batch import (
     BatchController,
     ClobberPolicy,
     Job,
-    SLURMExecutor,
-    SLURMResources,
+    PBSExecutor,
+    PBSResources,
 )
 
 logging.basicConfig(
@@ -73,9 +79,11 @@ class StormJob(Job):
         Directory containing ``.storm`` files named ``<storm_num>.storm``.
     setrun_path:
         Path to the base ``setrun.py``.
-    cpus:
-        Number of OpenMP threads for this job; controls both the SLURM
-        ``--cpus-per-task`` request and the ``OMP_NUM_THREADS`` export.
+    account:
+        Derecho project code (``#PBS -A``) applied to this job's resources.
+    threads:
+        OpenMP threads for this job; drives both the ``ompthreads`` request and
+        the ``OMP_NUM_THREADS`` export.  Derecho CPU nodes have 128 cores.
     """
 
     def __init__(
@@ -83,19 +91,19 @@ class StormJob(Job):
         storm_num: int,
         storms_path: Path = Path("."),
         setrun_path: Path | None = None,
-        cpus: int = 8,
+        account: str = "",
+        threads: int = 128,
     ) -> None:
         super().__init__()
 
         self.storm_num = storm_num
         self.prefix = str(storm_num).zfill(5)
         self.executable = "xgeoclaw"
+        self.setplot = "setplot.py"
 
         if setrun_path is None:
             setrun_path = Path(__file__).parent / "setrun.py"
 
-        # Use clawutil's fullpath_import if available:
-        # mod = clawutil.fullpath_import(setrun_path)
         spec = importlib.util.spec_from_file_location("setrun", setrun_path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
@@ -104,17 +112,21 @@ class StormJob(Job):
         storm_file = (Path(storms_path) / f"{storm_num}.storm").resolve()
         self.rundata.surge_data.storm_file = str(storm_file)
 
-        # SLURM resource request — attached directly to the job so the
-        # executor applies it without needing a subclass.
-        self.slurm_resources = SLURMResources(
-            partition="main",
+        # PBS resource request — attached directly to the job so the executor
+        # applies it without needing a scheduler-specific Job subclass.  A pure
+        # OpenMP GeoClaw run uses one MPI rank and the whole node's cores.
+        self.pbs_resources = PBSResources(
+            queue="main",
             nodes=1,
-            ntasks_per_node=1,
-            cpus_per_task=cpus,
-            time="06:00:00",
-            account="",  # fill in your allocation
-            env_vars={"OMP_NUM_THREADS": str(cpus)},
-            modules=["ncarenv/23.09", "python/3.11.4"],
+            ncpus=128,
+            mpiprocs=1,
+            ompthreads=threads,
+            walltime="12:00:00",
+            account=account,
+            env_vars={"OMP_NUM_THREADS": str(threads)},
+            modules=["ncarenv/23.09", "conda"],
+            plot=True,               # self-plot on the compute node
+            setplot="setplot.py",
         )
 
     def __repr__(self) -> str:
@@ -126,13 +138,14 @@ class StormJob(Job):
 # ---------------------------------------------------------------------------
 
 
-def make_jobs(storms_path: Path, setrun_path: Path) -> list[StormJob]:
+def make_jobs(storms_path: Path, setrun_path: Path, account: str) -> list[StormJob]:
     """Build jobs for storms 1–100."""
     return [
         StormJob(
             storm_num=n,
             storms_path=storms_path,
             setrun_path=setrun_path,
+            account=account,
         )
         for n in range(1, 101)
     ]
@@ -143,12 +156,17 @@ def main() -> None:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Write submission scripts but do not call sbatch.",
+        help="Write qsub scripts but do not call qsub.",
     )
     parser.add_argument(
         "--resume",
         action="store_true",
         help="Skip jobs whose output directory already exists.",
+    )
+    parser.add_argument(
+        "--account",
+        default="",
+        help="Derecho project code (#PBS -A). Required to actually submit.",
     )
     parser.add_argument(
         "--storms-path",
@@ -164,14 +182,21 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    jobs = make_jobs(storms_path=args.storms_path, setrun_path=args.setrun)
+    jobs = make_jobs(
+        storms_path=args.storms_path,
+        setrun_path=args.setrun,
+        account=args.account,
+    )
 
-    executor = SLURMExecutor(
-        default_resources=SLURMResources(
-            partition="main",
+    executor = PBSExecutor(
+        default_resources=PBSResources(
+            queue="main",
             nodes=1,
-            cpus_per_task=8,
-            time="06:00:00",
+            ncpus=128,
+            mpiprocs=1,
+            ompthreads=128,
+            walltime="12:00:00",
+            account=args.account,
         ),
         dry_run=args.dry_run,
     )
@@ -179,19 +204,19 @@ def main() -> None:
     ctrl = BatchController(
         jobs=jobs,
         executor=executor,
-        experiment="storm_ensemble",
+        experiment="derecho_storm_ensemble",
         clobber=ClobberPolicy.SKIP if args.resume else ClobberPolicy.OVERWRITE,
     )
 
-    # For SLURM we do not wait — sbatch returns immediately
+    # For PBS we do not wait — qsub returns immediately after submission.
     results = ctrl.run(wait=False)
 
     if args.dry_run:
         print(f"Dry run: {len(results)} script(s) written, none submitted.")
     else:
-        print(f"Submitted {len(results)} job(s) to SLURM.")
+        print(f"Submitted {len(results)} job(s) to PBS.")
         for r in results:
-            print(f"  {r.job.prefix}  →  SLURM job {r.job_id}")
+            print(f"  {r.job.prefix}  ->  PBS job {r.job_id}")
 
 
 if __name__ == "__main__":
