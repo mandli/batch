@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
@@ -48,7 +49,7 @@ class BatchController:
 
     def __init__(
         self,
-        jobs: list[Job] | None = None,
+        jobs: Sequence[Job] | None = None,
         executor: Executor | None = None,
         base_path: Path | str | None = None,
         experiment: str = "",

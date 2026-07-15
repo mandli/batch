@@ -13,6 +13,18 @@ from batch.job import Job, JobPaths, JobResult
 logger = logging.getLogger(__name__)
 
 
+def _detect_total_cpus() -> int:
+    """Cores available to this process.
+
+    Prefers the scheduling-affinity mask (respects a cpuset / PBS cgroup, so it
+    reports the cores actually granted on a compute node) and falls back to the
+    machine core count on platforms without ``sched_getaffinity`` (e.g. macOS).
+    """
+    if hasattr(os, "sched_getaffinity"):
+        return len(os.sched_getaffinity(0))
+    return os.cpu_count() or 1
+
+
 def _build_run_args(job: Job, paths: JobPaths) -> list[str]:
     """Build the argument list for invoking runclaw.
 
@@ -104,6 +116,18 @@ class ParallelExecutor:
     env:
         Additional environment variables to set for each job.  Useful for
         example to set ``OMP_NUM_THREADS`` for OpenMP-based executables.
+    cpu_affinity:
+        When True, pin each concurrent job to a disjoint range of physical
+        cores so co-scheduled OpenMP jobs do not migrate across sockets or
+        contend for the same cores.  The available cores (see ``total_cpus``)
+        are split into ``max_workers`` equal ranges; each running job is bound
+        to one via ``numactl --physcpubind=<range> --localalloc`` and given
+        ``OMP_PROC_BIND=close`` / ``OMP_PLACES=cores``.  Requires ``numactl``
+        on PATH (Linux/HPC); leave False on machines without it.
+    total_cpus:
+        Total cores to partition when ``cpu_affinity`` is set.  Defaults to the
+        cores granted to this process (:func:`_detect_total_cpus`), which is
+        the full node under an exclusive PBS allocation.
     """
 
     def __init__(
@@ -112,13 +136,25 @@ class ParallelExecutor:
         poll_interval: float = 5.0,
         extra_args: list[str] | None = None,
         env: dict[str, str] | None = None,
+        cpu_affinity: bool = False,
+        total_cpus: int | None = None,
     ) -> None:
         self.max_workers = max_workers
         self.poll_interval = poll_interval
         self.extra_args = extra_args or []
         self.env = env or {}
-        # Each entry: (Popen, JobResult, open log file handle)
-        self._active: list[tuple[subprocess.Popen, JobResult, object]] = []
+        self.cpu_affinity = cpu_affinity
+        if cpu_affinity:
+            total = total_cpus if total_cpus is not None else _detect_total_cpus()
+            self.total_cpus = total
+            self.cpus_per_slot = max(1, total // max_workers)
+        else:
+            self.total_cpus = 0
+            self.cpus_per_slot = 0
+        # Core-range slots handed out to running jobs and returned on completion.
+        self._free_slots: list[int] = list(range(max_workers))
+        # Each entry: (Popen, JobResult, open log file handle, slot | None)
+        self._active: list[tuple[subprocess.Popen, JobResult, object, int | None]] = []
 
     def submit(self, job: Job, paths: JobPaths) -> JobResult:
         """Start the job, blocking only if the worker pool is full."""
@@ -130,11 +166,40 @@ class ParallelExecutor:
         args = _build_run_args(job, paths) + self.extra_args
         run_env = os.environ.copy()
         run_env.update(self.env)
+
+        slot: int | None = None
+        if self.cpu_affinity:
+            # A free slot is guaranteed: the loop above holds len(_active) below
+            # max_workers, and slots are returned to the pool in _drain().
+            # Pop LIFO so a freed core range is reused by the next job (warm
+            # caches, stable NUMA) instead of rotating across all cores.
+            slot = self._free_slots.pop()
+            start = slot * self.cpus_per_slot
+            end = start + self.cpus_per_slot - 1
+            args = ["numactl", f"--physcpubind={start}-{end}", "--localalloc"] + args
+            run_env.setdefault("OMP_PROC_BIND", "close")
+            run_env.setdefault("OMP_PLACES", "cores")
+            try:
+                if int(run_env.get("OMP_NUM_THREADS", "1")) > self.cpus_per_slot:
+                    logger.warning(
+                        "Job %s: OMP_NUM_THREADS=%s exceeds cores/slot=%d; "
+                        "threads will oversubscribe the pinned range",
+                        job.prefix, run_env["OMP_NUM_THREADS"], self.cpus_per_slot,
+                    )
+            except ValueError:
+                pass
+
         log_fh = open(paths.log, "a")
         proc = subprocess.Popen(args, stdout=log_fh, stderr=log_fh, env=run_env)
         result = JobResult(job=job, paths=paths, returncode=None)
-        self._active.append((proc, result, log_fh))
-        logger.info("Started job %s (pid=%d)", job.prefix, proc.pid)
+        self._active.append((proc, result, log_fh, slot))
+        if slot is not None:
+            logger.info("Started job %s (pid=%d, cores %d-%d)",
+                        job.prefix, proc.pid,
+                        slot * self.cpus_per_slot,
+                        slot * self.cpus_per_slot + self.cpus_per_slot - 1)
+        else:
+            logger.info("Started job %s (pid=%d)", job.prefix, proc.pid)
         return result
 
     def _drain(self) -> None:
@@ -144,11 +209,13 @@ class ParallelExecutor:
         modify-while-iterating pitfall of the original implementation.
         """
         still_running = []
-        for proc, result, log_fh in self._active:
+        for proc, result, log_fh, slot in self._active:
             rc = proc.poll()
             if rc is not None:
                 result.returncode = rc
                 log_fh.close()
+                if slot is not None:
+                    self._free_slots.append(slot)
                 if rc != 0:
                     logger.error(
                         "Job %s failed (rc=%d) — last 10 lines of %s:",
@@ -172,7 +239,7 @@ class ParallelExecutor:
                             "post_run failed for job %s", result.job.prefix
                         )
             else:
-                still_running.append((proc, result, log_fh))
+                still_running.append((proc, result, log_fh, slot))
         self._active = still_running
 
     def wait_all(self, results: list[JobResult]) -> list[JobResult]:
