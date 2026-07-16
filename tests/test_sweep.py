@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from batch.job import Job
-from batch.sweep import product_sweep, zip_sweep
+from batch.sweep import parse_shard_spec, product_sweep, shard_jobs, zip_sweep
 from tests.conftest import MockJob
 
 
@@ -141,3 +141,64 @@ class TestZipSweep:
         )
         assert jobs[0]._params == {"a": 1, "b": "x"}
         assert jobs[1]._params == {"a": 2, "b": "y"}
+
+
+# ---------------------------------------------------------------------------
+# parse_shard_spec
+# ---------------------------------------------------------------------------
+
+
+class TestParseShardSpec:
+    def test_empty_is_no_sharding(self):
+        assert parse_shard_spec("") == (1, 1)
+
+    def test_valid_spec(self):
+        assert parse_shard_spec("3/16") == (3, 16)
+
+    @pytest.mark.parametrize("spec", ["1", "1/2/3", "a/2", "1-2"])
+    def test_malformed_raises(self, spec):
+        with pytest.raises(ValueError):
+            parse_shard_spec(spec)
+
+    @pytest.mark.parametrize("spec", ["0/4", "5/4", "1/0", "-1/4"])
+    def test_out_of_range_raises(self, spec):
+        with pytest.raises(ValueError):
+            parse_shard_spec(spec)
+
+
+# ---------------------------------------------------------------------------
+# shard_jobs
+# ---------------------------------------------------------------------------
+
+
+class TestShardJobs:
+    def test_single_shard_returns_all(self):
+        jobs = [MockJob(prefix=str(k)) for k in range(10)]
+        assert shard_jobs(jobs, 1, 1) == jobs
+
+    def test_shards_are_disjoint_and_cover_all(self):
+        jobs = [MockJob(prefix=str(k)) for k in range(10)]
+        n = 3
+        collected = []
+        for i in range(1, n + 1):
+            collected.extend(shard_jobs(jobs, i, n))
+        # Every job appears exactly once across the shards.
+        assert sorted(j.prefix for j in collected) == sorted(j.prefix for j in jobs)
+        assert len(collected) == len(jobs)
+
+    def test_round_robin_order(self):
+        jobs = [MockJob(prefix=str(k)) for k in range(6)]
+        assert [j.prefix for j in shard_jobs(jobs, 1, 3)] == ["0", "3"]
+        assert [j.prefix for j in shard_jobs(jobs, 2, 3)] == ["1", "4"]
+        assert [j.prefix for j in shard_jobs(jobs, 3, 3)] == ["2", "5"]
+
+    def test_more_shards_than_jobs_gives_empty_tail(self):
+        jobs = [MockJob(prefix=str(k)) for k in range(2)]
+        assert [j.prefix for j in shard_jobs(jobs, 1, 4)] == ["0"]
+        assert [j.prefix for j in shard_jobs(jobs, 2, 4)] == ["1"]
+        assert shard_jobs(jobs, 3, 4) == []
+
+    @pytest.mark.parametrize("i,n", [(0, 3), (4, 3), (1, 0)])
+    def test_out_of_range_raises(self, i, n):
+        with pytest.raises(ValueError):
+            shard_jobs([], i, n)

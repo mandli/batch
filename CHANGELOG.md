@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Added
+- `batch.packed`: fan a parameter sweep across several exclusive nodes, packing
+  many runs onto each via the local pool with CPU pinning.  `submit_packed()`
+  renders one per-node wrapper (PBS or SLURM) and submits it; the pure
+  `render_packed_pbs_wrapper()` / `render_packed_slurm_wrapper()` functions are
+  unit-testable without a cluster.  `PackedResources` is the scheduler-agnostic
+  per-node resource request.
+- `batch.sweep.shard_jobs(jobs, i, n)` and `parse_shard_spec("i/n")`: split a job
+  list into disjoint round-robin shards, one per packed node.
+
 ## [2.0.0] — breaking API change
 
 ### Added

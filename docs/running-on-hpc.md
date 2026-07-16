@@ -158,11 +158,53 @@ the same cores.
 - Requires `numactl` on `PATH` (Linux/HPC). Leave `cpu_affinity=False` on
   machines without it (e.g. macOS).
 
-To run this *on* a node, submit a wrapper job that requests one exclusive node
-and then invokes your driver in local mode on the compute node. To fan a large
-sweep across several packed nodes at once, split the job list into shards (one
-node per shard) — a reusable helper for this is planned; for now see the
-`pbs-packed` pattern in the project drivers.
+### Fanning a sweep across several packed nodes
+
+To pack on more than one node at once, split the job list into shards — one node
+per shard — and submit a wrapper per node. `batch.submit_packed` renders and
+submits those wrappers; each wrapper re-invokes *your own driver* on the compute
+node in local mode over its shard. (It has to re-run your driver because your
+`Job`-definition code — `build` / `post_run` — must be present on the node;
+`batch` supplies the outer packing layer, not your job definitions.)
+
+```python
+import sys
+from pathlib import Path
+from batch import submit_packed, PackedResources, shard_jobs
+
+# In your driver's local path, select this node's shard of the full sweep:
+#   i, n = parse_shard_spec(args.shard)      # from batch.sweep
+#   jobs = shard_jobs(all_jobs, i, n)
+# and run them through ParallelExecutor(cpu_affinity=True) as above.
+
+def inner(shard_i, n_shards):
+    """Per-node command: re-run this driver in local mode over one shard."""
+    return [
+        sys.executable, __file__,
+        "--scheduler", "local",
+        "--shard", f"{shard_i}/{n_shards}",
+        "--pin-cpus",
+    ]
+
+submit_packed(
+    n_nodes=4,
+    inner_command=inner,
+    resources=PackedResources(
+        queue="main", walltime="12:00:00", account="NCAR0001",
+        node_cpus=128, modules=["ncarenv/23.09", "conda"],
+    ),
+    scheduler="pbs",                    # or "slurm"
+    script_dir=Path("_pack_scripts"),
+    dry_run=False,                      # True writes wrappers without submitting
+    workdir=Path(__file__).parent,
+)
+```
+
+`submit_packed` returns the submitted job IDs (or, under `dry_run=True`, the paths
+of the wrapper scripts it wrote so you can inspect the directives first). It is
+submit-and-exit — poll the queue yourself and build any cross-run figures once
+the jobs finish. `shard_jobs(jobs, i, n)` and `parse_shard_spec("i/n")` (both in
+`batch.sweep`) give each node a disjoint, balanced slice of the sweep.
 
 ---
 
