@@ -208,6 +208,58 @@ the jobs finish. `shard_jobs(jobs, i, n)` and `parse_shard_spec("i/n")` (both in
 
 ---
 
+## Driving a batch from the command line
+
+Every scheduler driver ends up re-implementing the same `--scheduler` /
+`--account` / `--resume` / `--max-workers` argparse block and the same
+arg→executor glue. `batch.cli` factors that out **without** owning your `main()`:
+you keep your own parser and job list, and add only your domain flags.
+
+```python
+import argparse, sys
+from batch import add_execution_args, execute
+
+parser = argparse.ArgumentParser()
+add_execution_args(parser)                       # shared scheduler/resource flags
+parser.add_argument("--storms-path", ...)        # your domain flags
+args = parser.parse_args()
+
+jobs = make_jobs(args)                            # you build the job list
+
+def inner(i, n):                                  # only needed for *-packed
+    return [sys.executable, __file__, "--scheduler", "local",
+            "--shard", f"{i}/{n}", "--pin-cpus"]
+
+results = execute(args, jobs, experiment="storm_ensemble", inner_command=inner)
+```
+
+`execute` dispatches on `--scheduler`:
+
+- `local` → `ParallelExecutor` (blocks); `--setup-only` writes `.data` only.
+- `pbs` / `slurm` → the scheduler executor, submit-and-exit (`wait=False`);
+  `--setup-only` writes the submission scripts without submitting.
+- `pbs-packed` / `slurm-packed` → `submit_packed` with the per-node
+  `inner_command` (required); `--nodes` / `--node-cpus` size the packing, and the
+  re-invoked local shard is selected by `--shard`.
+
+Prefer the switch explicit in your own code? Skip `execute` and use the factories
+directly — they are what `execute` is built from:
+
+```python
+from batch import (BatchController, executor_from_args, clobber_from_args,
+                   report_results)
+
+ctrl = BatchController(jobs, executor_from_args(args),
+                       experiment="storm_ensemble", clobber=clobber_from_args(args))
+report_results(ctrl.run(wait=args.scheduler == "local"))
+```
+
+`report_results` prints a `Completed: X/Y successful, Z failed` summary (or, for a
+submit-and-exit run, the submitted job IDs) and returns a `ResultSummary`
+(`n_ok` / `n_failed` / `n_pending` / `failures`) so you can branch on the outcome.
+
+---
+
 ## Per-job resource overrides (no subclassing)
 
 Both executors read resources with `getattr(job, "<name>", default_resources)`,

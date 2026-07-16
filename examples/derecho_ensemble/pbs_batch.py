@@ -24,9 +24,9 @@ Directory layout produced::
 
 Usage
 -----
-Dry run (write qsub scripts, do not submit — needs no scheduler)::
+Write qsub scripts without submitting (needs no scheduler)::
 
-    python pbs_batch.py --dry-run
+    python pbs_batch.py --setup-only
 
 Submit to Derecho::
 
@@ -47,13 +47,7 @@ import importlib.util
 import logging
 from pathlib import Path
 
-from batch import (
-    BatchController,
-    ClobberPolicy,
-    Job,
-    PBSExecutor,
-    PBSResources,
-)
+from batch import Job, PBSResources, add_execution_args, execute
 
 logging.basicConfig(
     level=logging.INFO,
@@ -153,21 +147,10 @@ def make_jobs(storms_path: Path, setrun_path: Path, account: str) -> list[StormJ
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Write qsub scripts but do not call qsub.",
-    )
-    parser.add_argument(
-        "--resume",
-        action="store_true",
-        help="Skip jobs whose output directory already exists.",
-    )
-    parser.add_argument(
-        "--account",
-        default="",
-        help="Derecho project code (#PBS -A). Required to actually submit.",
-    )
+    # Shared execution flags; default this driver to PBS. Each StormJob carries
+    # its own PBSResources (with plot=True), which override the executor default.
+    add_execution_args(parser, packed=False)
+    parser.set_defaults(scheduler="pbs")
     parser.add_argument(
         "--storms-path",
         type=Path,
@@ -188,35 +171,9 @@ def main() -> None:
         account=args.account,
     )
 
-    executor = PBSExecutor(
-        default_resources=PBSResources(
-            queue="main",
-            nodes=1,
-            ncpus=128,
-            mpiprocs=1,
-            ompthreads=128,
-            walltime="12:00:00",
-            account=args.account,
-        ),
-        dry_run=args.dry_run,
-    )
-
-    ctrl = BatchController(
-        jobs=jobs,
-        executor=executor,
-        experiment="derecho_storm_ensemble",
-        clobber=ClobberPolicy.SKIP if args.resume else ClobberPolicy.OVERWRITE,
-    )
-
-    # For PBS we do not wait — qsub returns immediately after submission.
-    results = ctrl.run(wait=False)
-
-    if args.dry_run:
-        print(f"Dry run: {len(results)} script(s) written, none submitted.")
-    else:
-        print(f"Submitted {len(results)} job(s) to PBS.")
-        for r in results:
-            print(f"  {r.job.prefix}  ->  PBS job {r.job_id}")
+    # execute() submits and returns immediately for PBS (wait=False), printing
+    # the submitted job IDs via report_results.
+    execute(args, jobs, experiment="derecho_storm_ensemble")
 
 
 if __name__ == "__main__":

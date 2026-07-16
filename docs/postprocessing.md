@@ -79,6 +79,11 @@ batch, not in `post_run`. Use the `results` list from `ctrl.run(wait=True)`:
 filter to the successful jobs and iterate to load output files, compute metrics,
 or produce comparison plots spanning the whole ensemble.
 
+For a quick pass/fail tally first, `batch.report_results(results)` prints a
+`Completed: X/Y successful, Z failed` summary (with the log path of each failure)
+and returns a `ResultSummary` you can branch on — see
+[Driving a batch from the command line](running-on-hpc.md#driving-a-batch-from-the-command-line).
+
 ```python
 import matplotlib.pyplot as plt
 import numpy as np

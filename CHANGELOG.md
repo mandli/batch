@@ -6,6 +6,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- `batch.cli`: shared command-line surface for driver scripts, so projects stop
+  copy-pasting the scheduler/resource argparse block and the arg→executor glue.
+  `add_execution_args(parser)` contributes the generic flag group;
+  `executor_from_args(args)` / `clobber_from_args(args)` map args to objects;
+  `report_results(results)` prints and returns a `ResultSummary`; and
+  `execute(args, jobs, ...)` is a thin dispatch over local / scheduler / packed
+  submission.  Projects keep their own `main()` and domain flags.
 - `batch.packed`: fan a parameter sweep across several exclusive nodes, packing
   many runs onto each via the local pool with CPU pinning.  `submit_packed()`
   renders one per-node wrapper (PBS or SLURM) and submits it; the pure

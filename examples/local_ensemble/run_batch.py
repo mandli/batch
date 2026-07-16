@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 from pathlib import Path
 
 # Use non-interactive backend so plotting works in batch without a display
@@ -38,7 +37,7 @@ matplotlib.use("Agg")
 
 from manning_job import ManningJob
 
-from batch import BatchController, ClobberPolicy, ParallelExecutor
+from batch import add_execution_args, execute
 from batch.sweep import product_sweep
 
 logging.basicConfig(
@@ -103,52 +102,18 @@ def plot_ensemble(results: list) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--setup-only",
-        action="store_true",
-        help="Write .data files only; do not run the solver.",
-    )
-    parser.add_argument(
-        "--resume",
-        action="store_true",
-        help="Skip jobs whose output directory already exists.",
-    )
-    parser.add_argument(
-        "--max-workers",
-        type=int,
-        default=int(os.environ.get("BATCH_MAX_JOBS", 4)),
-        help="Maximum concurrent jobs (default: $BATCH_MAX_JOBS or 4).",
-    )
+    # Shared execution flags (--scheduler/--resume/--max-workers/…). This example
+    # is local-only, so the packing flags are omitted (packed=False); pass a
+    # scheduler flag to reuse the same driver on a cluster.
+    add_execution_args(parser, packed=False)
     args = parser.parse_args()
 
-    jobs = make_jobs()
+    # execute() blocks for the local scheduler, prints the run summary via
+    # report_results, and returns the results ([] under --setup-only).
+    results = execute(args, make_jobs(), experiment="manning_sensitivity")
 
-    clobber = ClobberPolicy.SKIP if args.resume else ClobberPolicy.OVERWRITE
-
-    ctrl = BatchController(
-        jobs=jobs,
-        executor=ParallelExecutor(max_workers=args.max_workers),
-        experiment="manning_sensitivity",
-        clobber=clobber,
-    )
-
-    if args.setup_only:
-        paths = ctrl.setup()
-        print(f"Setup complete for {len(paths)} job(s).")
-        return
-
-    results = ctrl.run(wait=True)
-
-    n_ok = sum(1 for r in results if r.success)
-    n_fail = sum(1 for r in results if not r.success and r.returncode is not None)
-    print(f"\nCompleted: {n_ok}/{len(results)} successful, {n_fail} failed.")
-
-    if n_fail:
-        for r in results:
-            if r.returncode is not None and r.returncode != 0:
-                print(f"  FAILED: {r.job.prefix}  (see {r.paths.log})")
-
-    plot_ensemble(results)
+    if not args.setup_only:
+        plot_ensemble(results)
 
 
 if __name__ == "__main__":

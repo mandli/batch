@@ -9,9 +9,18 @@ The most commonly used names are re-exported here for convenience::
     from batch import SLURMExecutor, SLURMResources
     from batch import PBSExecutor, PBSResources
     from batch import PackedResources, submit_packed
+    from batch import add_execution_args, executor_from_args, execute, report_results
     from batch.sweep import product_sweep, zip_sweep, shard_jobs
 """
 
+from batch.cli import (
+    ResultSummary,
+    add_execution_args,
+    clobber_from_args,
+    execute,
+    executor_from_args,
+    report_results,
+)
 from batch.controller import BatchController
 from batch.executors.local import ParallelExecutor, SerialExecutor
 from batch.executors.pbs import PBSExecutor, PBSResources
@@ -39,4 +48,10 @@ __all__ = [
     "submit_packed",
     "shard_jobs",
     "plot_job",
+    "add_execution_args",
+    "executor_from_args",
+    "clobber_from_args",
+    "execute",
+    "report_results",
+    "ResultSummary",
 ]
