@@ -45,6 +45,7 @@ Start here and read in order, or jump to the task you have in front of you:
 | `ClobberPolicy` | Controls what happens when output already exists: `OVERWRITE`, `ERROR`, `SKIP`. |
 | `plot_job` | Runs plotclaw after a job completes; handles missing visclaw gracefully. |
 | `product_sweep` / `zip_sweep` | Build job lists from parameter grids (`batch.sweep`). |
+| `parse_timing` / `plot_performance` | Parse a run's `timing.txt` and plot cross-run performance (`batch.analysis`). |
 
 The workflow is always the same shape:
 
@@ -61,6 +62,7 @@ from batch import SerialExecutor, ParallelExecutor
 from batch import SLURMExecutor, SLURMResources
 from batch import PBSExecutor, PBSResources
 from batch import plot_job
+from batch import parse_timing, plot_performance
 from batch.sweep import product_sweep, zip_sweep
 ```
 

@@ -387,8 +387,7 @@ def execute(
         logger.info("Setup complete for %d job(s).", len(paths))
         return []
 
-    if wait is None:
-        wait = scheduler == "local"
-    results = ctrl.run(wait=wait)
+    should_wait = (scheduler == "local") if wait is None else wait
+    results = ctrl.run(wait=should_wait)
     report_results(results)
     return results

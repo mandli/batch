@@ -6,6 +6,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- `batch.analysis`: `parse_timing(job_dir)` reads a GeoClaw run's `timing.txt`
+  into a structured dict (per-level, per-component, and total wall/cpu, plus the
+  OpenMP thread count); `plot_performance(job_dirs, labels, out_path)` builds a
+  three-panel wall-time / CPU-efficiency comparison across runs.  `parse_timing`
+  is standard-library only; `plot_performance` needs the optional `[analysis]`
+  extra (matplotlib + numpy) and degrades gracefully when it is absent.
+  Replaces the `NotImplementedError` stub.
 - `batch.cli`: shared command-line surface for driver scripts, so projects stop
   copy-pasting the scheduler/resource argparse block and the arg→executor glue.
   `add_execution_args(parser)` contributes the generic flag group;
