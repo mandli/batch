@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import itertools
-from typing import Any, Callable
+from typing import Any, Callable, TypeVar
 
 from batch.job import Job
+
+_J = TypeVar("_J", bound=Job)
 
 
 def product_sweep(
@@ -152,7 +154,7 @@ def parse_shard_spec(spec: str) -> tuple[int, int]:
     return i, n
 
 
-def shard_jobs(jobs: list[Job], i: int, n: int) -> list[Job]:
+def shard_jobs(jobs: list[_J], i: int, n: int) -> list[_J]:
     """Return shard *i* of *n* from *jobs*, round-robin (1-based).
 
     Splitting the job list this way lets each of *n* nodes run a disjoint slice

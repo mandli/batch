@@ -21,9 +21,9 @@ Directory layout produced::
 
 Usage
 -----
-Dry run (inspect generated scripts without submitting)::
+Inspect generated scripts without submitting::
 
-    python run_batch.py --dry-run
+    python run_batch.py --setup-only
 
 Submit to SLURM::
 
@@ -41,13 +41,7 @@ import importlib.util
 import logging
 from pathlib import Path
 
-from batch import (
-    BatchController,
-    ClobberPolicy,
-    Job,
-    SLURMExecutor,
-    SLURMResources,
-)
+from batch import Job, SLURMResources, add_execution_args, execute
 
 logging.basicConfig(
     level=logging.INFO,
@@ -84,6 +78,7 @@ class StormJob(Job):
         storms_path: Path = Path("."),
         setrun_path: Path | None = None,
         cpus: int = 8,
+        account: str = "",
     ) -> None:
         super().__init__()
 
@@ -112,7 +107,7 @@ class StormJob(Job):
             ntasks_per_node=1,
             cpus_per_task=cpus,
             time="06:00:00",
-            account="",  # fill in your allocation
+            account=account,
             env_vars={"OMP_NUM_THREADS": str(cpus)},
             modules=["ncarenv/23.09", "python/3.11.4"],
         )
@@ -126,13 +121,14 @@ class StormJob(Job):
 # ---------------------------------------------------------------------------
 
 
-def make_jobs(storms_path: Path, setrun_path: Path) -> list[StormJob]:
+def make_jobs(storms_path: Path, setrun_path: Path, account: str) -> list[StormJob]:
     """Build jobs for storms 1–100."""
     return [
         StormJob(
             storm_num=n,
             storms_path=storms_path,
             setrun_path=setrun_path,
+            account=account,
         )
         for n in range(1, 101)
     ]
@@ -140,16 +136,10 @@ def make_jobs(storms_path: Path, setrun_path: Path) -> list[StormJob]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Write submission scripts but do not call sbatch.",
-    )
-    parser.add_argument(
-        "--resume",
-        action="store_true",
-        help="Skip jobs whose output directory already exists.",
-    )
+    # Shared execution flags; default this driver to SLURM. Each StormJob still
+    # carries its own SLURMResources, which override the executor default.
+    add_execution_args(parser, packed=False)
+    parser.set_defaults(scheduler="slurm")
     parser.add_argument(
         "--storms-path",
         type=Path,
@@ -164,34 +154,15 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    jobs = make_jobs(storms_path=args.storms_path, setrun_path=args.setrun)
-
-    executor = SLURMExecutor(
-        default_resources=SLURMResources(
-            partition="main",
-            nodes=1,
-            cpus_per_task=8,
-            time="06:00:00",
-        ),
-        dry_run=args.dry_run,
+    jobs = make_jobs(
+        storms_path=args.storms_path,
+        setrun_path=args.setrun,
+        account=args.account,
     )
 
-    ctrl = BatchController(
-        jobs=jobs,
-        executor=executor,
-        experiment="storm_ensemble",
-        clobber=ClobberPolicy.SKIP if args.resume else ClobberPolicy.OVERWRITE,
-    )
-
-    # For SLURM we do not wait — sbatch returns immediately
-    results = ctrl.run(wait=False)
-
-    if args.dry_run:
-        print(f"Dry run: {len(results)} script(s) written, none submitted.")
-    else:
-        print(f"Submitted {len(results)} job(s) to SLURM.")
-        for r in results:
-            print(f"  {r.job.prefix}  →  SLURM job {r.job_id}")
+    # execute() submits and returns immediately for a scheduler (wait=False),
+    # printing the submitted job IDs via report_results.
+    execute(args, jobs, experiment="storm_ensemble")
 
 
 if __name__ == "__main__":
