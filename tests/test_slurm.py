@@ -133,6 +133,32 @@ class TestRenderSlurmScript:
         assert "#SBATCH --gres=gpu:1" in script
         assert "#SBATCH --licenses=scratch:1" in script
 
+    def test_plot_line_absent_by_default(self, paths, minimal_resources):
+        job = MockJob(prefix="job_001")
+        script = render_slurm_script(job, paths, minimal_resources)
+        assert "clawpack.visclaw.plotclaw" not in script
+
+    def test_plot_line_present_when_enabled(self, paths):
+        job = MockJob(prefix="job_001")
+        resources = SLURMResources(plot=True, setplot="/path/to/setplot.py")
+        script = render_slurm_script(job, paths, resources)
+        assert "clawpack.visclaw.plotclaw" in script
+        assert "/path/to/setplot.py" in script
+
+    def test_plot_line_falls_back_to_job_setplot(self, paths):
+        job = MockJob(prefix="job_001")
+        job.setplot = "/job/setplot.py"
+        resources = SLURMResources(plot=True)  # no setplot on resources
+        script = render_slurm_script(job, paths, resources)
+        assert "/job/setplot.py" in script
+
+    def test_solver_precedes_plot(self, paths):
+        """plotclaw must run after the solver, not before."""
+        job = MockJob(prefix="job_001")
+        resources = SLURMResources(plot=True, setplot="/path/to/setplot.py")
+        script = render_slurm_script(job, paths, resources)
+        assert script.index("runclaw") < script.index("plotclaw")
+
     def test_script_ends_with_newline(self, paths, minimal_resources):
         job = MockJob(prefix="job_001")
         script = render_slurm_script(job, paths, minimal_resources)

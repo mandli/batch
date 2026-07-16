@@ -40,6 +40,12 @@ ParallelExecutor(max_workers=2, env={"OMP_NUM_THREADS": "8"})
 On a scheduler this is not a concern — request whole nodes and use the full core
 count (`cpus_per_task` / `ompthreads`).
 
+If you instead pack several smaller jobs onto one exclusive node with
+`ParallelExecutor(cpu_affinity=True)`, the same product rule applies per node:
+keep `max_workers × OMP_NUM_THREADS ≤ total_cpus`. Pinning binds each job to a
+disjoint core range so co-scheduled jobs don't migrate or contend — see
+[Packing multiple jobs per node](running-on-hpc.md#packing-multiple-jobs-per-node).
+
 ---
 
 ## A job was killed by walltime — how do I resume?

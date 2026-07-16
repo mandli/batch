@@ -55,6 +55,7 @@ for r in results:
 | `modules` | `[]` | `module load <name>` lines |
 | `env_vars` | `{}` | `export K=V` lines |
 | `email` / `mail_type` | `""` / `"END,FAIL"` | `--mail-user` / `--mail-type` |
+| `plot` / `setplot` | `False` / `""` | append a compute-node `plotclaw` call ([see below](#self-plotting-on-the-compute-node)) |
 | `extra_directives` | `[]` | raw `#SBATCH` lines appended verbatim |
 
 ---
@@ -109,16 +110,59 @@ into a single `-l select=` chunk (`nodes:ncpus=..:mpiprocs=..:ompthreads=..`):
 
 ### Self-plotting on the compute node
 
-Set `PBSResources.plot=True` (with a `setplot` path) and `batch` appends a
-`plotclaw` call to the generated script, so each job produces its VisClaw frames
-on the compute node — avoiding a long-lived login-node plotting process. If
-`setplot` is left empty it falls back to `job.setplot`.
+Both backends support this. Set `plot=True` (with a `setplot` path) on the
+resource object and `batch` appends a `plotclaw` call to the generated script, so
+each job produces its VisClaw frames on the compute node — avoiding a long-lived
+login-node plotting process. If `setplot` is left empty it falls back to
+`job.setplot`.
 
 ```python
-PBSResources(..., plot=True, setplot="setplot.py")
+PBSResources(..., plot=True, setplot="setplot.py")     # PBS
+SLURMResources(..., plot=True, setplot="setplot.py")   # SLURM — identical behavior
 ```
 
 A complete PBS driver lives in `examples/derecho_ensemble/pbs_batch.py`.
+
+---
+
+## Packing multiple jobs per node
+
+A single GeoClaw run rarely saturates a modern HPC node (a Derecho CPU node has
+128 cores). When each job needs fewer threads than a whole node, you can *pack*
+several jobs onto one node instead of burning a node per job. `ParallelExecutor`
+does this directly with `cpu_affinity=True`:
+
+```python
+from batch import ParallelExecutor
+
+# One exclusive 128-core node: 16 jobs at once, 8 OpenMP threads each.
+executor = ParallelExecutor(
+    max_workers=16,
+    env={"OMP_NUM_THREADS": "8"},
+    cpu_affinity=True,          # pin each job to a disjoint core range
+    total_cpus=128,             # cores to partition (defaults to cores granted)
+)
+```
+
+With `cpu_affinity=True` the pool splits `total_cpus` into `max_workers` equal
+ranges and binds each running job to one via `numactl --physcpubind=<range>
+--localalloc`, also exporting `OMP_PROC_BIND=close` / `OMP_PLACES=cores`. This
+keeps co-scheduled OpenMP jobs from migrating across sockets or contending for
+the same cores.
+
+- Keep `max_workers × OMP_NUM_THREADS ≤ total_cpus`, or the pinned ranges
+  oversubscribe (the executor logs a warning when threads exceed cores per slot).
+- `total_cpus` defaults to the cores actually granted to the process
+  (`sched_getaffinity`), which is the full node under an exclusive allocation, so
+  you can usually omit it on a compute node.
+- Requires `numactl` on `PATH` (Linux/HPC). Leave `cpu_affinity=False` on
+  machines without it (e.g. macOS).
+
+To run this *on* a node, submit a wrapper job that requests one exclusive node
+and then invokes your driver in local mode on the compute node. To fan a large
+sweep across several packed nodes at once, split the job list into shards (one
+node per shard) — a reusable helper for this is planned; for now see the
+`pbs-packed` pattern in the project drivers.
 
 ---
 

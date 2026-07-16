@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 
@@ -50,6 +51,13 @@ class SLURMResources:
         Email address for job notifications.  Empty string disables mail.
     mail_type:
         Comma-separated SLURM mail event types.  Default ``"END,FAIL"``.
+    plot:
+        When True, append a ``plotclaw`` invocation after the solver so the job
+        produces its VisClaw frame plots on the compute node.  Requires a
+        setplot path (see ``setplot``).
+    setplot:
+        Path to the setplot file used by the appended ``plotclaw`` call.  When
+        empty, falls back to ``job.setplot``.
     extra_directives:
         Raw ``#SBATCH`` lines appended after the standard directives.  Use for
         anything not covered above (GRES, licenses, heterogeneous jobs, etc.).
@@ -67,6 +75,8 @@ class SLURMResources:
     env_vars: dict[str, str] = field(default_factory=dict)
     email: str = ""
     mail_type: str = "END,FAIL"
+    plot: bool = False
+    setplot: str = ""
     extra_directives: list[str] = field(default_factory=list)
 
 
@@ -132,6 +142,25 @@ def render_slurm_script(
         lines.append("")
 
     lines.append(run_cmd)
+
+    # Optional compute-node plotting: run plotclaw after the solver so each job
+    # produces its VisClaw frames without a login-node process (mirrors the
+    # invocation in batch.plot.plot_job and render_pbs_script).
+    if resources.plot:
+        setplot = resources.setplot or str(job.setplot)
+        plot_cmd = " ".join(
+            str(a)
+            for a in [
+                sys.executable,
+                "-m",
+                "clawpack.visclaw.plotclaw",
+                str(paths.job),
+                str(paths.plots),
+                setplot,
+            ]
+        )
+        lines.append(plot_cmd)
+
     lines.append("")  # ensure trailing newline
 
     return "\n".join(lines)
@@ -206,10 +235,11 @@ class SLURMExecutor:
                     capture_output=True,
                     text=True,
                 )
-                if not proc.stdout.strip():
-                    # Job no longer in queue — finished (success or failure).
-                    # squeue exit code is non-zero for unknown job IDs on some
-                    # clusters so we key on empty stdout rather than returncode.
+                # A finished/purged job produces empty stdout, and squeue also
+                # exits non-zero for unknown job IDs on some clusters.  Key on
+                # either signal rather than on returncode alone, since transient
+                # states differ by site (mirrors PBSExecutor.wait_all).
+                if proc.returncode != 0 or not proc.stdout.strip():
                     pending[job_id].returncode = 0
                     try:
                         pending[job_id].job.post_run(pending[job_id])

@@ -6,6 +6,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- SLURM compute-node self-plotting parity: `SLURMResources.plot` / `setplot`
+  now append a `plotclaw` call to the generated script, matching
+  `PBSResources.plot`.
 - `PBSExecutor`, `PBSResources`, and `render_pbs_script()`: PBS Pro backend
   (NCAR Derecho `qsub`/`qstat`), mirroring the SLURM backend.  Submits via
   `qsub`, captures the job ID, polls `qstat` in `wait_all`.  Per-job override
