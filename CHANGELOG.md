@@ -6,6 +6,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- `batch.cli.executor_from_args` and `execute` accept `plot` / `setplot`
+  arguments, forwarded to `PBSResources` / `SLURMResources` so a CLI-driven batch
+  can request compute-node self-plotting on the scheduler backends.
 - `batch.analysis`: `parse_timing(job_dir)` reads a GeoClaw run's `timing.txt`
   into a structured dict (per-level, per-component, and total wall/cpu, plus the
   OpenMP thread count); `plot_performance(job_dirs, labels, out_path)` builds a
