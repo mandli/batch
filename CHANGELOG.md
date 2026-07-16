@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [2.0.0] — breaking API change
 
 ### Added
 - SLURM compute-node self-plotting parity: `SLURMResources.plot` / `setplot`
@@ -22,13 +22,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `batch.plot.plot_job`: runs plotclaw as a subprocess, capturing all
   output (including C-level I/O) to the job log file. Callable setplot
   falls back to in-process with a logged warning.
-
-## [2.0.0] — breaking API change
-
-Tagged as v2.  The v1 API (original `batch.py`, `stampede.py`) is preserved
-on the `v1.0.0` tag.
-
-### Added
 - `JobPaths` dataclass: typed, named filesystem layout replacing the `dict`
   returned by the old `run()`.
 - `JobResult` dataclass: carries `job`, `paths`, `returncode`, and `job_id`.
@@ -97,6 +90,9 @@ on the `v1.0.0` tag.
 - `#SBATCH -t` in `StampedeBatchController` was hardcoded to `9:00:00`,
   ignoring `job.time`.
 - Missing `\n` in the Stampede MIC environment export line.
+
+Tagged as v2.  The v1 API (original `batch.py`, `stampede.py`) is preserved
+on the `v1.0.0` tag.  Claude-Code assisted with this rewrite.
 
 ## [1.0.0]
 
