@@ -242,6 +242,15 @@ results = execute(args, jobs, experiment="storm_ensemble", inner_command=inner)
   `inner_command` (required); `--nodes` / `--node-cpus` size the packing, and the
   re-invoked local shard is selected by `--shard`.
 
+For [compute-node self-plotting](#self-plotting-on-the-compute-node) on the
+scheduler backends, pass `plot=`/`setplot=` to `execute` (or `executor_from_args`);
+they set `PBSResources.plot` / `SLURMResources.plot`:
+
+```python
+execute(args, jobs, experiment="storm_ensemble",
+        plot=not args.no_run_plots, setplot="setplot.py")
+```
+
 Prefer the switch explicit in your own code? Skip `execute` and use the factories
 directly — they are what `execute` is built from:
 

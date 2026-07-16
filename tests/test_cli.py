@@ -179,6 +179,24 @@ class TestExecutorFromArgs:
         with pytest.raises(ValueError, match="packed"):
             executor_from_args(parse(["--scheduler", "pbs-packed"]))
 
+    def test_pbs_plot_passthrough(self):
+        ex = executor_from_args(
+            parse(["--scheduler", "pbs"]), plot=True, setplot="s.py"
+        )
+        assert ex.default_resources.plot is True
+        assert ex.default_resources.setplot == "s.py"
+
+    def test_slurm_plot_passthrough(self):
+        ex = executor_from_args(
+            parse(["--scheduler", "slurm"]), plot=True, setplot="s.py"
+        )
+        assert ex.default_resources.plot is True
+        assert ex.default_resources.setplot == "s.py"
+
+    def test_plot_defaults_off(self):
+        ex = executor_from_args(parse(["--scheduler", "pbs"]))
+        assert ex.default_resources.plot is False
+
 
 # ---------------------------------------------------------------------------
 # report_results
@@ -295,3 +313,17 @@ class TestExecute:
         assert all(r.pending for r in out)
         for i in range(2):
             assert (tmp_path / "exp" / f"j{i}" / "j{}_run.sh".format(i)).exists()
+
+    def test_plot_forwarded_to_generated_script(self, tmp_path):
+        jobs = [MockJob(prefix="j0")]
+        execute(
+            parse(["--scheduler", "pbs", "--setup-only"]),
+            jobs,
+            experiment="exp",
+            base_path=tmp_path,
+            plot=True,
+            setplot="/s.py",
+        )
+        script = (tmp_path / "exp" / "j0" / "j0_run.sh").read_text()
+        assert "clawpack.visclaw.plotclaw" in script
+        assert "/s.py" in script

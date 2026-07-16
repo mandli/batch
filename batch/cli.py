@@ -159,7 +159,11 @@ def clobber_from_args(args: argparse.Namespace) -> ClobberPolicy:
 
 
 def executor_from_args(
-    args: argparse.Namespace, *, env: dict[str, str] | None = None
+    args: argparse.Namespace,
+    *,
+    env: dict[str, str] | None = None,
+    plot: bool = False,
+    setplot: str = "",
 ) -> Executor:
     """Build the executor selected by ``--scheduler``.
 
@@ -175,6 +179,13 @@ def executor_from_args(
     env:
         Extra environment variables merged into each job's environment, on top
         of the ``OMP_NUM_THREADS`` derived from ``--omp-num-threads``.
+    plot:
+        When True, request compute-node self-plotting on the scheduler backends
+        (sets ``PBSResources.plot`` / ``SLURMResources.plot``).  Ignored for the
+        ``local`` backend, which plots via each job's ``post_run`` hook instead.
+    setplot:
+        setplot path for the compute-node ``plotclaw`` call (paired with
+        *plot*); empty falls back to ``job.setplot``.
 
     Returns
     -------
@@ -211,6 +222,8 @@ def executor_from_args(
                 account=args.account,
                 env_vars=run_env,
                 modules=args.modules,
+                plot=plot,
+                setplot=setplot,
             ),
             dry_run=args.setup_only,
         )
@@ -225,6 +238,8 @@ def executor_from_args(
                 account=args.account,
                 env_vars=run_env,
                 modules=args.modules,
+                plot=plot,
+                setplot=setplot,
             ),
             dry_run=args.setup_only,
         )
@@ -294,6 +309,8 @@ def execute(
     base_path: Path | str | None = None,
     script_dir: Path | str | None = None,
     workdir: Path | str | None = None,
+    plot: bool = False,
+    setplot: str = "",
 ) -> list[JobResult]:
     """Run *jobs* according to ``--scheduler``, tying the factories together.
 
@@ -329,6 +346,11 @@ def execute(
         Where packed wrappers are written (default: ``<cwd>/_pack_scripts``).
     workdir:
         Directory each packed wrapper ``cd``s into before its inner command.
+    plot:
+        Request compute-node self-plotting on the ``pbs`` / ``slurm`` backends
+        (forwarded to :func:`executor_from_args`).  Ignored for ``local``.
+    setplot:
+        setplot path for the compute-node ``plotclaw`` call (paired with *plot*).
 
     Returns
     -------
@@ -376,7 +398,7 @@ def execute(
 
     ctrl = BatchController(
         jobs=jobs,
-        executor=executor_from_args(args, env=env),
+        executor=executor_from_args(args, env=env, plot=plot, setplot=setplot),
         base_path=base_path,
         experiment=experiment,
         clobber=clobber_from_args(args),
