@@ -109,9 +109,44 @@ fig.savefig(successful[0].paths.job.parent / "ensemble_comparison.png")
 The `plot_ensemble` function in `examples/local_ensemble/run_batch.py` is a
 complete version of this pattern.
 
-> **Note.** The `batch.analysis` module is a placeholder and currently raises
-> `NotImplementedError` — there is no built-in cross-run analysis API yet.
-> Cross-run analysis is done manually via the `results` list as shown above.
+---
+
+## `batch.analysis`: timing and performance
+
+For GeoClaw's per-run `timing.txt`, `batch.analysis` provides two ready-made
+tools so you don't have to hand-parse it.
+
+`parse_timing(job_dir)` reads the `timing.txt` in a job's output directory into a
+dict (per-AMR-level wall/cpu/cells, solver-component breakdown, overall total, and
+the OpenMP thread count), or returns `None` if the file isn't there:
+
+```python
+from batch import parse_timing
+
+t = parse_timing(result.paths.job)
+if t:
+    print(t["total"]["wall"], "s wall,", t["n_threads"], "threads")
+```
+
+`plot_performance(job_dirs, labels, out_path)` builds a three-panel comparison
+across runs — total wall time with CPU efficiency overlaid, wall time by AMR
+level, and wall time by solver component:
+
+```python
+from batch import plot_performance
+
+successful = [r for r in results if r.success]
+plot_performance(
+    [r.paths.job for r in successful],
+    labels=[r.job.prefix for r in successful],
+    out_path="performance.png",
+)
+```
+
+`parse_timing` is standard-library only. `plot_performance` needs matplotlib and
+numpy — install them with the optional extra, `pip install clawpack-batch[analysis]`;
+without them it logs a warning and returns `None` rather than raising (like
+`plot_job`).
 
 ---
 
