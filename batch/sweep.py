@@ -108,3 +108,80 @@ def zip_sweep(
         job.prefix = namer(params)
         jobs.append(job)
     return jobs
+
+
+def parse_shard_spec(spec: str) -> tuple[int, int]:
+    """Parse a 1-based ``"I/N"`` shard spec into ``(i, n)``.
+
+    An empty string means "no sharding" and returns ``(1, 1)``.  Used to split a
+    job list across nodes: shard ``i`` of ``n`` (see :func:`shard_jobs`).
+
+    Parameters
+    ----------
+    spec:
+        Either an empty string or ``"I/N"`` with ``1 <= I <= N`` and ``N >= 1``.
+
+    Returns
+    -------
+    tuple[int, int]
+        The ``(i, n)`` pair.
+
+    Raises
+    ------
+    ValueError
+        If *spec* is malformed or out of range.
+
+    Examples
+    --------
+    >>> parse_shard_spec("3/16")
+    (3, 16)
+    >>> parse_shard_spec("")
+    (1, 1)
+    """
+    if not spec:
+        return 1, 1
+    try:
+        i_str, n_str = spec.split("/")
+        i, n = int(i_str), int(n_str)
+    except ValueError:
+        raise ValueError(f"shard spec must be I/N (e.g. 1/16); got {spec!r}") from None
+    if n < 1 or not (1 <= i <= n):
+        raise ValueError(
+            f"shard spec I/N requires N >= 1 and 1 <= I <= N; got {spec!r}"
+        )
+    return i, n
+
+
+def shard_jobs(jobs: list[Job], i: int, n: int) -> list[Job]:
+    """Return shard *i* of *n* from *jobs*, round-robin (1-based).
+
+    Splitting the job list this way lets each of *n* nodes run a disjoint slice
+    of the same sweep: node ``i`` runs ``shard_jobs(jobs, i, n)``.  Round-robin
+    (``jobs[i-1::n]``) rather than contiguous blocks keeps the per-shard work
+    balanced when jobs are ordered by cost.
+
+    The *n* shards are disjoint and their union is *jobs*, so no job is dropped
+    or duplicated across nodes.
+
+    Parameters
+    ----------
+    jobs:
+        The full job list.
+    i:
+        1-based shard index, ``1 <= i <= n``.
+    n:
+        Number of shards, ``n >= 1``.
+
+    Returns
+    -------
+    list[Job]
+        The jobs assigned to shard *i*.
+
+    Raises
+    ------
+    ValueError
+        If ``n < 1`` or ``i`` is out of ``[1, n]``.
+    """
+    if n < 1 or not (1 <= i <= n):
+        raise ValueError(f"shard requires n >= 1 and 1 <= i <= n; got i={i}, n={n}")
+    return jobs[i - 1 :: n]
