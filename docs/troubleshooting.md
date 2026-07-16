@@ -8,13 +8,22 @@ Common failure modes and how to resolve them.
 
 ## Environment variables
 
-`batch` reads three environment variables:
+`batch` reads these environment variables:
 
 | Variable | Effect |
 |---|---|
 | `OUTPUT_PATH` | Base directory for all job output. Defaults to the current working directory. Overridden by an explicit `base_path=` on `BatchController`. |
 | `BATCH_MAX_JOBS` | Default `max_workers` for `ParallelExecutor`. Defaults to 4. |
 | `OMP_NUM_THREADS` | Threads each OpenMP solver process uses. Set it via the executor's `env=` (local) or `env_vars=` (scheduler). |
+
+The `batch.cli` helpers add three more, used only as defaults for their
+matching flags (any of which you can still pass explicitly):
+
+| Variable | Flag default |
+|---|---|
+| `BATCH_ACCOUNT` | `--account` — scheduler allocation/project code (PBS or SLURM). |
+| `BATCH_MODULES` | `--modules` — space-separated modules to `module load`. |
+| `BATCH_MAX_JOBS` | `--max-workers` (as above). |
 
 ---
 

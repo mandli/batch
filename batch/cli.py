@@ -63,7 +63,7 @@ def add_execution_args(parser: argparse.ArgumentParser, *, packed: bool = True) 
     ``--scheduler`` (local/pbs/slurm/pbs-packed/slurm-packed), ``--setup-only``,
     ``--resume``, ``--max-workers`` (``$BATCH_MAX_JOBS`` or 4),
     ``--omp-num-threads`` (``$OMP_NUM_THREADS`` or 1), ``--account``
-    (``$PBS_ACCOUNT``), ``--queue``, ``--walltime``, ``--modules``
+    (``$BATCH_ACCOUNT``), ``--queue``, ``--walltime``, ``--modules``
     (``$BATCH_MODULES``), and — with ``packed=True`` — ``--nodes``,
     ``--node-cpus``, ``--shard`` (``I/N``), ``--pin-cpus``.
     """
@@ -100,8 +100,9 @@ def add_execution_args(parser: argparse.ArgumentParser, *, packed: bool = True) 
     )
     g.add_argument(
         "--account",
-        default=os.environ.get("PBS_ACCOUNT", ""),
-        help="Scheduler allocation/project code (default: $PBS_ACCOUNT).",
+        default=os.environ.get("BATCH_ACCOUNT", ""),
+        help="Scheduler allocation/project code, PBS or SLURM alike "
+        "(default: $BATCH_ACCOUNT).",
     )
     g.add_argument(
         "--queue",
