@@ -155,8 +155,8 @@ class TestParallelExecutorDrain:
         log_fh = MagicMock()
 
         executor._active = [
-            (done_proc, done_result, log_fh),
-            (running_proc, running_result, log_fh),
+            (done_proc, done_result, log_fh, None),
+            (running_proc, running_result, log_fh, None),
         ]
         executor._drain()
 
@@ -170,7 +170,7 @@ class TestParallelExecutorDrain:
         proc = self._make_mock_proc(poll_return=0)
         result = JobResult(job=job, paths=paths, returncode=None)
         log_fh = MagicMock()
-        executor._active = [(proc, result, log_fh)]
+        executor._active = [(proc, result, log_fh, None)]
 
         executor._drain()
 
@@ -183,11 +183,27 @@ class TestParallelExecutorDrain:
         proc = self._make_mock_proc(poll_return=0)
         result = JobResult(job=job, paths=paths, returncode=None)
         log_fh = MagicMock()
-        executor._active = [(proc, result, log_fh)]
+        executor._active = [(proc, result, log_fh, None)]
 
         executor._drain()
 
         log_fh.close.assert_called_once()
+
+    def test_drain_returns_slot_to_free_pool_on_completion(self, paths):
+        """A completed job's affinity slot should be returned to the pool."""
+        executor = ParallelExecutor(max_workers=4)
+        job = MockJob(prefix="job_001")
+
+        proc = self._make_mock_proc(poll_return=0)
+        result = JobResult(job=job, paths=paths, returncode=None)
+        log_fh = MagicMock()
+        # Simulate a job that was handed slot 2 (removed from the free pool).
+        executor._free_slots.remove(2)
+        executor._active = [(proc, result, log_fh, 2)]
+
+        executor._drain()
+
+        assert 2 in executor._free_slots
 
     def test_drain_does_not_skip_consecutive_completed_processes(self, paths):
         """Regression test: the original list-modify-while-iterating bug
@@ -201,7 +217,7 @@ class TestParallelExecutorDrain:
             proc = self._make_mock_proc(poll_return=0)
             result = JobResult(job=job, paths=paths, returncode=None)
             results.append(result)
-            executor._active.append((proc, result, log_fh))
+            executor._active.append((proc, result, log_fh, None))
 
         executor._drain()
 

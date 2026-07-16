@@ -134,7 +134,7 @@ class TestPostRun:
         proc.poll.return_value = 0
         result = JobResult(job=job, paths=job_paths, returncode=None)
         log_fh = MagicMock()
-        executor._active = [(proc, result, log_fh)]
+        executor._active = [(proc, result, log_fh, None)]
         with patch.object(job, "post_run") as mock_post_run:
             executor._drain()
         mock_post_run.assert_called_once_with(result)
@@ -146,7 +146,7 @@ class TestPostRun:
         proc.poll.return_value = 1
         result = JobResult(job=job, paths=job_paths, returncode=None)
         log_fh = MagicMock()
-        executor._active = [(proc, result, log_fh)]
+        executor._active = [(proc, result, log_fh, None)]
         with patch.object(job, "post_run") as mock_post_run:
             executor._drain()
         mock_post_run.assert_not_called()
