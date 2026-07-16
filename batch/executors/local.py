@@ -184,7 +184,9 @@ class ParallelExecutor:
                     logger.warning(
                         "Job %s: OMP_NUM_THREADS=%s exceeds cores/slot=%d; "
                         "threads will oversubscribe the pinned range",
-                        job.prefix, run_env["OMP_NUM_THREADS"], self.cpus_per_slot,
+                        job.prefix,
+                        run_env["OMP_NUM_THREADS"],
+                        self.cpus_per_slot,
                     )
             except ValueError:
                 pass
@@ -194,10 +196,13 @@ class ParallelExecutor:
         result = JobResult(job=job, paths=paths, returncode=None)
         self._active.append((proc, result, log_fh, slot))
         if slot is not None:
-            logger.info("Started job %s (pid=%d, cores %d-%d)",
-                        job.prefix, proc.pid,
-                        slot * self.cpus_per_slot,
-                        slot * self.cpus_per_slot + self.cpus_per_slot - 1)
+            logger.info(
+                "Started job %s (pid=%d, cores %d-%d)",
+                job.prefix,
+                proc.pid,
+                slot * self.cpus_per_slot,
+                slot * self.cpus_per_slot + self.cpus_per_slot - 1,
+            )
         else:
             logger.info("Started job %s (pid=%d)", job.prefix, proc.pid)
         return result

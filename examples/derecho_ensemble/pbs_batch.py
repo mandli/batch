@@ -125,7 +125,7 @@ class StormJob(Job):
             account=account,
             env_vars={"OMP_NUM_THREADS": str(threads)},
             modules=["ncarenv/23.09", "conda"],
-            plot=True,               # self-plot on the compute node
+            plot=True,  # self-plot on the compute node
             setplot="setplot.py",
         )
 
