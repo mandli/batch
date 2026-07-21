@@ -92,21 +92,44 @@ ctrl = BatchController(jobs=jobs, executor=MyExecutor(), experiment="custom")
 
 ### What a well-behaved executor should do
 
-Study `batch/executors/local.py`, `slurm.py`, and `pbs.py` as references. To fit
-in cleanly, an executor should:
+Study `batch/executors/local.py` and `batch/executors/scheduler.py` as
+references. To fit in cleanly, an executor should:
 
 - write solver/stdout to `paths.log`;
 - call `job.post_run(result)` for successful jobs, wrapping it in `try/except`
   so a failing hook never aborts the batch (see [post-processing](postprocessing.md));
 - honor `job.restart` (via `_build_run_args`, which already encodes it);
-- read a per-job resource/config attribute with
-  `getattr(job, "<name>", self.default)` if it needs one — that's how the SLURM
-  and PBS backends implement [per-job overrides](running-on-hpc.md#per-job-resource-overrides-no-subclassing)
-  without subclassing.
+- read a per-job config attribute with `getattr(job, "<name>", self.default)` if
+  it needs one — that's how `SchedulerExecutor` implements
+  [per-job overrides](running-on-hpc.md#per-job-resource-overrides-no-subclassing)
+  (`getattr(job, "job_request", self.default_request)`) without subclassing.
 
-For a new scheduler specifically, mirror the SLURM/PBS structure: a resource
-dataclass, a **pure** `render_*_script()` function (easy to unit-test without a
-cluster), and an executor that submits and polls.
+### Adding a new scheduler (LSF, etc.)
+
+You do **not** write a new executor for a new batch scheduler — you write a
+`Scheduler` backend and reuse `SchedulerExecutor`. A `Scheduler` (see
+`batch/scheduler.py`) is a small, pure object that owns only what differs
+between schedulers:
+
+```python
+class Scheduler(Protocol):
+    name: str
+    def directives(self, request: JobRequest) -> list[str]: ...   # the header block
+    def normalize_env(self) -> list[str]: ...                     # export BATCH_* from native vars
+    def submit_argv(self, script_path: str) -> list[str]: ...     # e.g. ["bsub", script_path]
+    def parse_job_id(self, stdout: str) -> str: ...
+    def depend_flag(self, job_ids: list[str]) -> str: ...
+    def poll_argv(self, job_id: str) -> list[str]: ...            # queue-status query
+```
+
+Implement those six methods (all pure, so each is unit-testable without a
+cluster — see `tests/test_scheduler.py`), register the class in
+`batch.scheduler.SCHEDULERS`, and both the per-job path and packed submission
+work unchanged: the emitted script body, the `env_file` sourcing, the `BATCH_*`
+contract, and the polling loop are all shared. The one rule is that
+`normalize_env()` must make `BATCH_NODEFILE` a real file (as `SlurmScheduler`
+does with `scontrol show hostnames`) so the packer's node handling is identical
+across backends.
 
 ---
 

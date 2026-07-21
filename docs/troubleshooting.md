@@ -91,11 +91,20 @@ resuming, or gate resumption on a solver-produced sentinel file.
 `batch` does not depend on Clawpack — it assumes Clawpack is importable in your
 environment at runtime. Jobs invoke the solver via
 `python -m clawpack.clawutil.runclaw`, and plotting via
-`python -m clawpack.visclaw.plotclaw`, using the **same** interpreter
-(`sys.executable`) that launched `batch`. If those modules aren't found, activate
-the environment that has Clawpack before running, and on a scheduler make sure
-the job script loads the right modules / conda environment (via
-`modules=` / `env_vars=` on the resource object).
+`python -m clawpack.visclaw.plotclaw`. Locally these use the **same** interpreter
+(`sys.executable`) that launched `batch`; on a scheduler they use the absolute
+venv python you pass as `--python` / `python=` (default: the submitting
+interpreter). If those modules aren't found locally, activate the environment
+that has Clawpack before running.
+
+On a scheduler, this is exactly what the **env_file** is for: the generated
+script sources it on the compute node and then runs a fail-fast
+`python -c "import batch"` check before the solver, printing the hostname and
+python version if it fails. If you hit this on a compute node, your env_file is
+not leaving Clawpack (and `batch`) importable — load the right modules / activate
+the venv / export `PYTHONPATH` there. See the
+[env_file contract](running-on-hpc.md#the-env_file-read-this-first) and the
+annotated `docs/env_file.example.zsh`.
 
 ---
 
@@ -110,8 +119,8 @@ directory that already exists. Switch to `OVERWRITE` to re-run in place, or
 
 ## A scheduler job reports success but the run clearly failed
 
-When `run(wait=True)`, the SLURM and PBS executors mark a job complete with
-`returncode=0` once it *leaves the queue* — they do not inspect the solver's real
+When `run(wait=True)`, `SchedulerExecutor` marks a job complete with
+`returncode=0` once it *leaves the queue* — it does not inspect the solver's real
 exit status, because schedulers purge finished jobs from `squeue` / `qstat`.
 So `r.success` on a scheduler job means "no longer queued," not "exited 0."
 Confirm real success by checking the job log and `fort.*` output, or by relying

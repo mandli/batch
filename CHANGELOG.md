@@ -7,7 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - `batch.cli.executor_from_args` and `execute` accept `plot` / `setplot`
-  arguments, forwarded to `PBSResources` / `SLURMResources` so a CLI-driven batch
+  arguments, forwarded to the `SchedulerExecutor` so a CLI-driven batch
   can request compute-node self-plotting on the scheduler backends.
 - `batch.analysis`: `parse_timing(job_dir)` reads a GeoClaw run's `timing.txt`
   into a structured dict (per-level, per-component, and total wall/cpu, plus the
@@ -25,12 +25,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   submission.  Projects keep their own `main()` and domain flags.
 - `batch.packed`: fan a parameter sweep across several exclusive nodes, packing
   many runs onto each via the local pool with CPU pinning.  `submit_packed()`
-  renders one per-node wrapper (PBS or SLURM) and submits it; the pure
-  `render_packed_pbs_wrapper()` / `render_packed_slurm_wrapper()` functions are
-  unit-testable without a cluster.  `PackedResources` is the scheduler-agnostic
-  per-node resource request.
+  renders one per-node wrapper through the shared scheduler core — sourcing the
+  machine `env_file` and re-invoking the caller's driver in `--scheduler local
+  --shard i/n --pin-cpus` mode — and submits it.  `PackedResources` is the
+  scheduler-agnostic per-node resource request.
 - `batch.sweep.shard_jobs(jobs, i, n)` and `parse_shard_spec("i/n")`: split a job
   list into disjoint round-robin shards, one per packed node.
+
+### Changed
+- Unify the PBS and SLURM backends onto a single `SchedulerExecutor`,
+  parametrized by an injected `Scheduler` (`PBSScheduler` / `SlurmScheduler`, or
+  `get_scheduler("pbs"|"slurm")`) and a per-machine `env_file`.  Scheduler
+  directives are normalized into one `JobRequest` dataclass (`queue`, `account`,
+  `walltime`, `nodes`, `cpus_per_node`, `tasks_per_node`, `ompthreads`,
+  `exclusive`, `mem`, `constraint`, `array`, `depend`, `email`,
+  `extra_directives`); per-job override is now `job.job_request`.  Non-directive
+  concerns — `modules`, `env_vars`, `plot` / `setplot`, `python` — move to the
+  executor.  The emitted script is now scheduler-agnostic: `#!/bin/zsh`, the
+  scheduler directive header, `source <env_file>`, the exported `BATCH_*`
+  contract (`BATCH_JOB_ID`, `BATCH_SUBMIT_DIR`, `BATCH_NODEFILE`, `BATCH_NNODES`,
+  `BATCH_ARRAY_INDEX`), a fail-fast `python -c "import batch"` check, `cd` to the
+  work directory, then `exec` the run — both backends share one
+  `render_job_script()` core, and packed submission routes through that same core
+  instead of per-scheduler renderers.  An annotated `env_file` template lives at
+  `docs/env_file.example.zsh`.
+- `batch.cli`: `add_execution_args()` now also contributes `--env-file` (default
+  `$BATCH_ENV_FILE`; required for the pbs / slurm / *-packed backends) and
+  `--python` (default the submitting interpreter).  `submit_packed()` now
+  requires the `env_file` and `python` keyword arguments.
+
+### Removed
+- **BREAKING:** removed `PBSExecutor` / `SLURMExecutor`, the `PBSResources` /
+  `SLURMResources` dataclasses, the `render_pbs_script` / `render_slurm_script`
+  script renderers, and the `render_packed_pbs_wrapper` /
+  `render_packed_slurm_wrapper` packed renderers.  The per-job
+  `job.pbs_resources` / `job.slurm_resources` overrides are replaced by
+  `job.job_request`.  Migrate to `SchedulerExecutor` + an injected `Scheduler`
+  and a per-machine `env_file` (see `docs/env_file.example.zsh`).
 
 ## [2.0.0] — breaking API change
 

@@ -22,10 +22,12 @@ from batch.cli import (
     report_results,
 )
 from batch.executors.local import ParallelExecutor
-from batch.executors.pbs import PBSExecutor
-from batch.executors.slurm import SLURMExecutor
+from batch.executors.scheduler import SchedulerExecutor
 from batch.job import ClobberPolicy, JobPaths, JobResult
+from batch.scheduler import PBSScheduler, SlurmScheduler
 from tests.conftest import MockJob
+
+ENV_FILE = "/etc/batch/env.zsh"
 
 
 def parse(argv, *, packed=True) -> argparse.Namespace:
@@ -158,44 +160,70 @@ class TestExecutorFromArgs:
         assert ex.env["FOO"] == "bar"
         assert "OMP_NUM_THREADS" in ex.env
 
-    def test_pbs_returns_pbs_executor_with_threads(self):
+    def test_pbs_returns_scheduler_executor_with_threads(self):
         ex = executor_from_args(
-            parse(["--scheduler", "pbs", "--omp-num-threads", "64"])
+            parse(
+                [
+                    "--scheduler",
+                    "pbs",
+                    "--omp-num-threads",
+                    "64",
+                    "--env-file",
+                    ENV_FILE,
+                ]
+            )
         )
-        assert isinstance(ex, PBSExecutor)
-        assert ex.default_resources.ompthreads == 64
-        assert ex.default_resources.ncpus == 64
+        assert isinstance(ex, SchedulerExecutor)
+        assert isinstance(ex.scheduler, PBSScheduler)
+        assert ex.default_request.ompthreads == 64
+        assert ex.default_request.cpus_per_node == 64
+        assert ex.env_file == ENV_FILE
 
     def test_setup_only_sets_scheduler_dry_run(self):
-        ex = executor_from_args(parse(["--scheduler", "pbs", "--setup-only"]))
+        ex = executor_from_args(
+            parse(["--scheduler", "pbs", "--setup-only", "--env-file", ENV_FILE])
+        )
         assert ex.dry_run is True
 
-    def test_slurm_returns_slurm_executor(self):
-        ex = executor_from_args(parse(["--scheduler", "slurm", "--queue", "gpu"]))
-        assert isinstance(ex, SLURMExecutor)
-        assert ex.default_resources.partition == "gpu"
+    def test_slurm_returns_scheduler_executor(self):
+        ex = executor_from_args(
+            parse(["--scheduler", "slurm", "--queue", "gpu", "--env-file", ENV_FILE])
+        )
+        assert isinstance(ex, SchedulerExecutor)
+        assert isinstance(ex.scheduler, SlurmScheduler)
+        assert ex.default_request.queue == "gpu"
+
+    def test_scheduler_requires_env_file(self):
+        with pytest.raises(ValueError, match="requires --env-file"):
+            executor_from_args(parse(["--scheduler", "pbs"]))
 
     def test_packed_scheduler_raises(self):
         with pytest.raises(ValueError, match="packed"):
-            executor_from_args(parse(["--scheduler", "pbs-packed"]))
+            executor_from_args(
+                parse(["--scheduler", "pbs-packed", "--env-file", ENV_FILE])
+            )
 
     def test_pbs_plot_passthrough(self):
         ex = executor_from_args(
-            parse(["--scheduler", "pbs"]), plot=True, setplot="s.py"
+            parse(["--scheduler", "pbs", "--env-file", ENV_FILE]),
+            plot=True,
+            setplot="s.py",
         )
-        assert ex.default_resources.plot is True
-        assert ex.default_resources.setplot == "s.py"
+        assert ex.plot is True
+        assert ex.setplot == "s.py"
 
     def test_slurm_plot_passthrough(self):
         ex = executor_from_args(
-            parse(["--scheduler", "slurm"]), plot=True, setplot="s.py"
+            parse(["--scheduler", "slurm", "--env-file", ENV_FILE]),
+            plot=True,
+            setplot="s.py",
         )
-        assert ex.default_resources.plot is True
-        assert ex.default_resources.setplot == "s.py"
+        assert ex.plot is True
+        assert ex.setplot == "s.py"
 
     def test_plot_defaults_off(self):
-        ex = executor_from_args(parse(["--scheduler", "pbs"]))
-        assert ex.default_resources.plot is False
+        ex = executor_from_args(parse(["--scheduler", "pbs", "--env-file", ENV_FILE]))
+        assert ex.plot is False
 
 
 # ---------------------------------------------------------------------------
@@ -248,8 +276,29 @@ class TestExecute:
         with pytest.raises(ValueError, match="inner_command"):
             execute(parse(["--scheduler", "pbs-packed"]), [], experiment="e")
 
+    def test_packed_requires_env_file(self, tmp_path):
+        args = parse(["--scheduler", "pbs-packed", "--nodes", "3"])
+        with pytest.raises(ValueError, match="requires --env-file"):
+            execute(
+                args,
+                [],
+                experiment="e",
+                inner_command=lambda i, n: ["x"],
+                script_dir=tmp_path,
+            )
+
     def test_packed_dispatches_to_submit_packed(self, tmp_path):
-        args = parse(["--scheduler", "pbs-packed", "--nodes", "3", "--setup-only"])
+        args = parse(
+            [
+                "--scheduler",
+                "pbs-packed",
+                "--nodes",
+                "3",
+                "--setup-only",
+                "--env-file",
+                ENV_FILE,
+            ]
+        )
         inner = lambda i, n: ["python", "d.py", "--shard", f"{i}/{n}"]  # noqa: E731
         with patch("batch.cli.submit_packed") as mock_sp:
             out = execute(
@@ -261,9 +310,12 @@ class TestExecute:
         assert kwargs["n_nodes"] == 3
         assert kwargs["scheduler"] == "pbs"
         assert kwargs["dry_run"] is True
+        assert kwargs["env_file"] == ENV_FILE
 
     def test_slurm_packed_maps_to_slurm(self, tmp_path):
-        args = parse(["--scheduler", "slurm-packed", "--nodes", "2"])
+        args = parse(
+            ["--scheduler", "slurm-packed", "--nodes", "2", "--env-file", ENV_FILE]
+        )
         with patch("batch.cli.submit_packed") as mock_sp:
             execute(
                 args,
@@ -303,7 +355,7 @@ class TestExecute:
     def test_pbs_setup_only_writes_scripts(self, tmp_path):
         jobs = [MockJob(prefix=f"j{i}") for i in range(2)]
         out = execute(
-            parse(["--scheduler", "pbs", "--setup-only"]),
+            parse(["--scheduler", "pbs", "--setup-only", "--env-file", ENV_FILE]),
             jobs,
             experiment="exp",
             base_path=tmp_path,
@@ -317,7 +369,7 @@ class TestExecute:
     def test_plot_forwarded_to_generated_script(self, tmp_path):
         jobs = [MockJob(prefix="j0")]
         execute(
-            parse(["--scheduler", "pbs", "--setup-only"]),
+            parse(["--scheduler", "pbs", "--setup-only", "--env-file", ENV_FILE]),
             jobs,
             experiment="exp",
             base_path=tmp_path,
