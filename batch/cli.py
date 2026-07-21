@@ -25,16 +25,17 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from batch.controller import BatchController
 from batch.executors import Executor
 from batch.executors.local import ParallelExecutor
-from batch.executors.pbs import PBSExecutor, PBSResources
-from batch.executors.slurm import SLURMExecutor, SLURMResources
+from batch.executors.scheduler import SchedulerExecutor
 from batch.job import ClobberPolicy, Job, JobResult
 from batch.packed import PackedResources, submit_packed
+from batch.scheduler import JobRequest, get_scheduler
 from batch.sweep import parse_shard_spec, shard_jobs
 
 logger = logging.getLogger(__name__)
@@ -121,6 +122,19 @@ def add_execution_args(parser: argparse.ArgumentParser, *, packed: bool = True) 
         help="Modules to 'module load' in the job script "
         "(default: $BATCH_MODULES, space-separated).",
     )
+    g.add_argument(
+        "--env-file",
+        default=os.environ.get("BATCH_ENV_FILE", ""),
+        help="Path to the per-machine env file the job sources on the compute "
+        "node (default: $BATCH_ENV_FILE). Required for the pbs/slurm backends; "
+        "must leave the run modules, venv python, and 'import batch' working.",
+    )
+    g.add_argument(
+        "--python",
+        default=sys.executable,
+        help="Absolute path to the venv python used to launch the run on the "
+        "compute node (default: the submitting interpreter).",
+    )
     if packed:
         p = parser.add_argument_group("packing (pbs-packed / slurm-packed)")
         p.add_argument(
@@ -172,6 +186,10 @@ def executor_from_args(
     wrapper jobs, it is not a per-job backend); use :func:`execute` or
     :func:`batch.submit_packed` for those.
 
+    The ``pbs`` and ``slurm`` backends are the *same* :class:`SchedulerExecutor`
+    with a different injected :class:`~batch.scheduler.Scheduler`; the resource
+    request is normalized into a single :class:`~batch.scheduler.JobRequest`.
+
     Parameters
     ----------
     args:
@@ -180,9 +198,9 @@ def executor_from_args(
         Extra environment variables merged into each job's environment, on top
         of the ``OMP_NUM_THREADS`` derived from ``--omp-num-threads``.
     plot:
-        When True, request compute-node self-plotting on the scheduler backends
-        (sets ``PBSResources.plot`` / ``SLURMResources.plot``).  Ignored for the
-        ``local`` backend, which plots via each job's ``post_run`` hook instead.
+        When True, request compute-node self-plotting on the scheduler backends.
+        Ignored for the ``local`` backend, which plots via each job's
+        ``post_run`` hook instead.
     setplot:
         setplot path for the compute-node ``plotclaw`` call (paired with
         *plot*); empty falls back to ``job.setplot``.
@@ -190,12 +208,13 @@ def executor_from_args(
     Returns
     -------
     Executor
-        A ``ParallelExecutor``, ``PBSExecutor``, or ``SLURMExecutor``.
+        A ``ParallelExecutor`` or a ``SchedulerExecutor``.
 
     Raises
     ------
     ValueError
-        If ``--scheduler`` is a ``*-packed`` value or otherwise unsupported here.
+        If ``--scheduler`` is a ``*-packed`` value, or a scheduler backend is
+        selected without an ``--env-file``, or the value is unsupported here.
     """
     run_env = {"OMP_NUM_THREADS": str(args.omp_num_threads)}
     if env:
@@ -210,37 +229,34 @@ def executor_from_args(
             cpu_affinity=pin,
             total_cpus=getattr(args, "node_cpus", None) if pin else None,
         )
-    if args.scheduler == "pbs":
-        return PBSExecutor(
-            default_resources=PBSResources(
-                queue=args.queue,
-                nodes=1,
-                ncpus=threads,
-                mpiprocs=1,
-                ompthreads=threads,
-                walltime=args.walltime,
-                account=args.account,
-                env_vars=run_env,
-                modules=args.modules,
-                plot=plot,
-                setplot=setplot,
-            ),
-            dry_run=args.setup_only,
+    if args.scheduler in ("pbs", "slurm"):
+        if not args.env_file:
+            raise ValueError(
+                f"--scheduler {args.scheduler} requires --env-file (or "
+                "$BATCH_ENV_FILE): the job sources it on the compute node to "
+                "load modules and make 'import batch' work."
+            )
+        # One exclusive-node-per-job request, normalized once for both backends.
+        request = JobRequest(
+            name="",  # filled in per job at submit time
+            log_path="",
+            queue=args.queue,
+            account=args.account,
+            walltime=args.walltime,
+            nodes=1,
+            cpus_per_node=threads,
+            tasks_per_node=1,
+            ompthreads=threads,
         )
-    if args.scheduler == "slurm":
-        return SLURMExecutor(
-            default_resources=SLURMResources(
-                partition=args.queue,
-                nodes=1,
-                ntasks_per_node=1,
-                cpus_per_task=threads,
-                time=args.walltime,
-                account=args.account,
-                env_vars=run_env,
-                modules=args.modules,
-                plot=plot,
-                setplot=setplot,
-            ),
+        return SchedulerExecutor(
+            get_scheduler(args.scheduler),
+            env_file=args.env_file,
+            default_request=request,
+            python=args.python,
+            modules=args.modules,
+            env_vars=run_env,
+            plot=plot,
+            setplot=setplot,
             dry_run=args.setup_only,
         )
     raise ValueError(
@@ -367,6 +383,12 @@ def execute(
                 "(the per-node re-invocation of your driver)."
             )
         base = scheduler.split("-")[0]
+        if not args.env_file:
+            raise ValueError(
+                f"--scheduler {scheduler} requires --env-file (or "
+                "$BATCH_ENV_FILE): each node's wrapper sources it before "
+                "re-invoking your driver."
+            )
         resources = PackedResources(
             queue=args.queue,
             walltime=args.walltime,
@@ -383,6 +405,8 @@ def execute(
             resources=resources,
             scheduler=base,
             script_dir=sdir,
+            env_file=args.env_file,
+            python=args.python,
             dry_run=args.setup_only,
             workdir=workdir,
         )

@@ -11,10 +11,10 @@ class Executor(Protocol):
     """Interface that all execution backends must satisfy.
 
     :class:`~batch.executors.local.SerialExecutor`,
-    :class:`~batch.executors.local.ParallelExecutor`,
-    :class:`~batch.executors.slurm.SLURMExecutor`, and
-    :class:`~batch.executors.pbs.PBSExecutor` all implement this protocol,
-    as does any custom executor the caller provides.
+    :class:`~batch.executors.local.ParallelExecutor`, and
+    :class:`~batch.executors.scheduler.SchedulerExecutor` (parametrized by a
+    PBS or SLURM :class:`~batch.scheduler.Scheduler`) all implement this
+    protocol, as does any custom executor the caller provides.
     """
 
     def submit(self, job: Job, paths: JobPaths) -> JobResult:
