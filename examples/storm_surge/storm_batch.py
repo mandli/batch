@@ -2,9 +2,12 @@
 
 Demonstrates:
 - Subclassing Job for storm-file-driven GeoClaw runs
-- Per-job SLURMResources override
-- SLURMExecutor with dry_run for script inspection
+- The ``--scheduler slurm`` backend: one ``SchedulerExecutor`` parametrized by a
+  ``SlurmScheduler`` and a per-machine ``env_file``
 - Building a job list directly (one job per storm number)
+
+The PBS analogue is ``examples/derecho_ensemble/pbs_batch.py``; the same driver
+runs on either scheduler by swapping ``--scheduler`` and the ``env_file``.
 
 Directory layout produced::
 
@@ -19,19 +22,24 @@ Directory layout produced::
         00002/
           ...
 
+The compute node needs an *env_file* that loads the run modules and makes
+``import batch`` work; see the annotated template at
+``docs/env_file.example.zsh`` and point ``--env-file`` (or ``$BATCH_ENV_FILE``)
+at your copy.
+
 Usage
 -----
 Inspect generated scripts without submitting::
 
-    python run_batch.py --setup-only
+    python run_batch.py --setup-only --env-file ~/cluster_env.zsh
 
-Submit to SLURM::
+Submit to SLURM (8 OpenMP threads per job)::
 
-    python run_batch.py
+    python run_batch.py --env-file ~/cluster_env.zsh --omp-num-threads 8
 
 Resume after partial completion::
 
-    python run_batch.py --resume
+    python run_batch.py --env-file ~/cluster_env.zsh --resume
 """
 
 from __future__ import annotations
@@ -41,7 +49,7 @@ import importlib.util
 import logging
 from pathlib import Path
 
-from batch import Job, SLURMResources, add_execution_args, execute
+from batch import Job, add_execution_args, execute
 
 logging.basicConfig(
     level=logging.INFO,
@@ -67,9 +75,6 @@ class StormJob(Job):
         Directory containing ``.storm`` files named ``<storm_num>.storm``.
     setrun_path:
         Path to the base ``setrun.py``.
-    cpus:
-        Number of OpenMP threads for this job; controls both the SLURM
-        ``--cpus-per-task`` request and the ``OMP_NUM_THREADS`` export.
     """
 
     def __init__(
@@ -77,8 +82,6 @@ class StormJob(Job):
         storm_num: int,
         storms_path: Path = Path("."),
         setrun_path: Path | None = None,
-        cpus: int = 8,
-        account: str = "",
     ) -> None:
         super().__init__()
 
@@ -99,18 +102,11 @@ class StormJob(Job):
         storm_file = (Path(storms_path) / f"{storm_num}.storm").resolve()
         self.rundata.surge_data.storm_file = str(storm_file)
 
-        # SLURM resource request — attached directly to the job so the
-        # executor applies it without needing a subclass.
-        self.slurm_resources = SLURMResources(
-            partition="main",
-            nodes=1,
-            ntasks_per_node=1,
-            cpus_per_task=cpus,
-            time="06:00:00",
-            account=account,
-            env_vars={"OMP_NUM_THREADS": str(cpus)},
-            modules=["ncarenv/23.09", "python/3.11.4"],
-        )
+        # Resources are uniform, so they come from the CLI flags
+        # (--queue/--account/--walltime/--omp-num-threads/--modules) via
+        # execute().  Override per job without a subclass by attaching a
+        # JobRequest (``from batch import JobRequest``) when a sweep is
+        # heterogeneous.
 
     def __repr__(self) -> str:
         return f"StormJob(storm_num={self.storm_num}, prefix={self.prefix!r})"
@@ -121,23 +117,18 @@ class StormJob(Job):
 # ---------------------------------------------------------------------------
 
 
-def make_jobs(storms_path: Path, setrun_path: Path, account: str) -> list[StormJob]:
+def make_jobs(storms_path: Path, setrun_path: Path) -> list[StormJob]:
     """Build jobs for storms 1–100."""
     return [
-        StormJob(
-            storm_num=n,
-            storms_path=storms_path,
-            setrun_path=setrun_path,
-            account=account,
-        )
+        StormJob(storm_num=n, storms_path=storms_path, setrun_path=setrun_path)
         for n in range(1, 101)
     ]
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    # Shared execution flags; default this driver to SLURM. Each StormJob still
-    # carries its own SLURMResources, which override the executor default.
+    # Shared execution flags; default this driver to SLURM.  Resources come from
+    # the flags (--queue/--account/--walltime/--omp-num-threads/--modules).
     add_execution_args(parser, packed=False)
     parser.set_defaults(scheduler="slurm")
     parser.add_argument(
@@ -154,11 +145,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    jobs = make_jobs(
-        storms_path=args.storms_path,
-        setrun_path=args.setrun,
-        account=args.account,
-    )
+    jobs = make_jobs(storms_path=args.storms_path, setrun_path=args.setrun)
 
     # execute() submits and returns immediately for a scheduler (wait=False),
     # printing the submitted job IDs via report_results.

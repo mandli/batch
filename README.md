@@ -57,7 +57,8 @@ for r in results:
 ```
 
 Output lands under `OUTPUT_PATH/experiment/prefix/`. To run the same jobs on a
-cluster, swap `ParallelExecutor` for `SLURMExecutor` or `PBSExecutor` — the job
+cluster, swap `ParallelExecutor` for a `SchedulerExecutor` with a
+`SlurmScheduler` or `PBSScheduler` backend and a per-machine `env_file` — the job
 definition is unchanged.
 
 ---
@@ -83,7 +84,7 @@ Task-oriented guides live in [`docs/`](docs/index.md):
 - [`examples/storm_surge/`](examples/storm_surge/) — 100-member storm ensemble
   submitted to SLURM.
 - [`examples/derecho_ensemble/`](examples/derecho_ensemble/) — PBS / Derecho
-  submission with `PBSExecutor`.
+  submission with the pbs `SchedulerExecutor` backend.
 
 ---
 

@@ -2,12 +2,13 @@
 
 Demonstrates:
 - Subclassing Job for storm-file-driven GeoClaw runs
-- Per-job PBSResources override (attached to the job, no scheduler subclass)
-- PBSExecutor with dry_run for script inspection
-- Compute-node self-plotting via PBSResources(plot=True)
+- The ``--scheduler pbs`` backend: one ``SchedulerExecutor`` parametrized by a
+  ``PBSScheduler`` and a per-machine ``env_file``
+- Compute-node self-plotting via ``execute(plot=True)``
 
-This is the PBS analogue of ``examples/storm_surge/storm_batch.py`` — the Job
-definition is identical in spirit; only the resource object and executor differ.
+This is the PBS analogue of ``examples/storm_surge/storm_batch.py`` — the same
+driver runs on SLURM by passing ``--scheduler slurm``; only ``env_file`` and the
+``--scheduler`` value change.
 
 Directory layout produced::
 
@@ -22,19 +23,25 @@ Directory layout produced::
         00002/
           ...
 
+The compute node needs an *env_file* that loads the run modules and makes
+``import batch`` work; the package ships an annotated template at
+``docs/env_file.example.zsh``.  Point ``--env-file`` (or ``$BATCH_ENV_FILE``) at
+your copy.
+
 Usage
 -----
 Write qsub scripts without submitting (needs no scheduler)::
 
-    python pbs_batch.py --setup-only
+    python pbs_batch.py --setup-only --env-file ~/derecho_env.zsh
 
-Submit to Derecho::
+Submit to Derecho (128 OpenMP threads per node)::
 
-    python pbs_batch.py --account NCAR0001
+    python pbs_batch.py --account NCAR0001 --env-file ~/derecho_env.zsh \\
+        --omp-num-threads 128 --modules ncarenv/23.09 conda
 
 Resume after a partial / walltime-killed run::
 
-    python pbs_batch.py --account NCAR0001 --resume
+    python pbs_batch.py --account NCAR0001 --env-file ~/derecho_env.zsh --resume
 
 Constructing the jobs calls ``setrun()``, which requires a Clawpack install and a
 ``setrun.py`` in this directory; the module itself imports without Clawpack.
@@ -47,7 +54,7 @@ import importlib.util
 import logging
 from pathlib import Path
 
-from batch import Job, PBSResources, add_execution_args, execute
+from batch import Job, add_execution_args, execute
 
 logging.basicConfig(
     level=logging.INFO,
@@ -73,11 +80,6 @@ class StormJob(Job):
         Directory containing ``.storm`` files named ``<storm_num>.storm``.
     setrun_path:
         Path to the base ``setrun.py``.
-    account:
-        Derecho project code (``#PBS -A``) applied to this job's resources.
-    threads:
-        OpenMP threads for this job; drives both the ``ompthreads`` request and
-        the ``OMP_NUM_THREADS`` export.  Derecho CPU nodes have 128 cores.
     """
 
     def __init__(
@@ -85,8 +87,6 @@ class StormJob(Job):
         storm_num: int,
         storms_path: Path = Path("."),
         setrun_path: Path | None = None,
-        account: str = "",
-        threads: int = 128,
     ) -> None:
         super().__init__()
 
@@ -106,22 +106,17 @@ class StormJob(Job):
         storm_file = (Path(storms_path) / f"{storm_num}.storm").resolve()
         self.rundata.surge_data.storm_file = str(storm_file)
 
-        # PBS resource request — attached directly to the job so the executor
-        # applies it without needing a scheduler-specific Job subclass.  A pure
-        # OpenMP GeoClaw run uses one MPI rank and the whole node's cores.
-        self.pbs_resources = PBSResources(
-            queue="main",
-            nodes=1,
-            ncpus=128,
-            mpiprocs=1,
-            ompthreads=threads,
-            walltime="12:00:00",
-            account=account,
-            env_vars={"OMP_NUM_THREADS": str(threads)},
-            modules=["ncarenv/23.09", "conda"],
-            plot=True,  # self-plot on the compute node
-            setplot="setplot.py",
-        )
+        # Resources here are uniform, so they come from the CLI flags
+        # (--queue/--account/--walltime/--omp-num-threads) via execute().  For a
+        # *heterogeneous* sweep, override per job without a subclass by attaching
+        # a JobRequest (``from batch import JobRequest``), e.g. a longer wall for
+        # the big storms:
+        #
+        #     self.job_request = JobRequest(
+        #         name="", log_path="",   # filled in at submit time
+        #         queue="main", walltime="24:00:00",
+        #         nodes=1, cpus_per_node=128, tasks_per_node=1, ompthreads=128,
+        #     )
 
     def __repr__(self) -> str:
         return f"StormJob(storm_num={self.storm_num}, prefix={self.prefix!r})"
@@ -132,23 +127,18 @@ class StormJob(Job):
 # ---------------------------------------------------------------------------
 
 
-def make_jobs(storms_path: Path, setrun_path: Path, account: str) -> list[StormJob]:
+def make_jobs(storms_path: Path, setrun_path: Path) -> list[StormJob]:
     """Build jobs for storms 1–100."""
     return [
-        StormJob(
-            storm_num=n,
-            storms_path=storms_path,
-            setrun_path=setrun_path,
-            account=account,
-        )
+        StormJob(storm_num=n, storms_path=storms_path, setrun_path=setrun_path)
         for n in range(1, 101)
     ]
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    # Shared execution flags; default this driver to PBS. Each StormJob carries
-    # its own PBSResources (with plot=True), which override the executor default.
+    # Shared execution flags; default this driver to PBS.  Resources come from
+    # the flags (--queue/--account/--walltime/--omp-num-threads/--modules).
     add_execution_args(parser, packed=False)
     parser.set_defaults(scheduler="pbs")
     parser.add_argument(
@@ -165,15 +155,18 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    jobs = make_jobs(
-        storms_path=args.storms_path,
-        setrun_path=args.setrun,
-        account=args.account,
-    )
+    jobs = make_jobs(storms_path=args.storms_path, setrun_path=args.setrun)
 
     # execute() submits and returns immediately for PBS (wait=False), printing
-    # the submitted job IDs via report_results.
-    execute(args, jobs, experiment="derecho_storm_ensemble")
+    # the submitted job IDs via report_results.  plot=True appends a plotclaw
+    # call so each job self-plots on the compute node.
+    execute(
+        args,
+        jobs,
+        experiment="derecho_storm_ensemble",
+        plot=True,
+        setplot="setplot.py",
+    )
 
 
 if __name__ == "__main__":

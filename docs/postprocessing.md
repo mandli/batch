@@ -33,8 +33,8 @@ class MyJob(Job):
 - **`ParallelExecutor`** — fires as each job is harvested, so post-processing for
   a finished job runs *concurrently* with jobs still in flight.
 - **`SerialExecutor`** — fires right after each job returns.
-- **`SLURMExecutor` / `PBSExecutor`** — fires as each job leaves the queue during
-  `wait_all` (i.e. only when you call `run(wait=True)`).
+- **`SchedulerExecutor` (pbs/slurm)** — fires as each job leaves the queue during
+  `wait_all` polling (i.e. only when you call `run(wait=True)`).
 
 > **It only runs on success.** `post_run` is called only when `result.success`
 > is `True`. Exceptions raised inside it are logged and swallowed — a failing
@@ -65,8 +65,8 @@ plot_job(result, setplot="setplot.py", format="ascii", verbose=False) -> bool
   returns `False` rather than raising. This means a missing VisClaw never crashes
   your batch.
 
-On a cluster you can instead plot **on the compute node** by setting
-`PBSResources.plot=True` — see
+On a cluster you can instead plot **on the compute node** via the executor's
+`plot=True` (or `execute(plot=True)`) — see
 [the HPC guide](running-on-hpc.md#self-plotting-on-the-compute-node). That avoids
 a long-lived login-node plotting process for large ensembles.
 

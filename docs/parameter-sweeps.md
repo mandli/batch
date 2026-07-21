@@ -114,4 +114,4 @@ clobber = ClobberPolicy.SKIP if args.resume else ClobberPolicy.OVERWRITE
 
 Runnable sweep: `examples/local_ensemble/run_batch.py` uses `product_sweep`.
 `examples/storm_surge/storm_batch.py` builds its job list directly and shows the
-per-job SLURM override and `--resume` patterns.
+CLI-driven scheduler submission and `--resume` patterns.

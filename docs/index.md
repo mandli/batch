@@ -39,7 +39,9 @@ Start here and read in order, or jump to the task you have in front of you:
 |---|---|
 | `Job` | Describes one simulation: `prefix`, `executable`, `rundata`, optional `build()` / `post_run()` overrides. |
 | `BatchController` | Orchestrates directory setup, data writing, and dispatch. |
-| `Executor` | Protocol implemented by `SerialExecutor`, `ParallelExecutor`, `SLURMExecutor`, `PBSExecutor`. |
+| `Executor` | Protocol implemented by `SerialExecutor`, `ParallelExecutor`, and `SchedulerExecutor` (one HPC executor parametrized by an injected `Scheduler` backend and a per-machine `env_file`). |
+| `Scheduler` | Protocol implemented by `PBSScheduler` and `SlurmScheduler`; inject one into `SchedulerExecutor` (or resolve by name with `get_scheduler`). |
+| `JobRequest` | Normalized, scheduler-agnostic resource request (directives only): `queue`, `account`, `walltime`, `nodes`, `cpus_per_node`, `tasks_per_node`, etc. Override per job with `job.job_request`. |
 | `JobPaths` | Typed paths for one job's directory, plots, and log. |
 | `JobResult` | Return value from `run()`: `job`, `paths`, `returncode`, scheduler `job_id`; `.success` / `.pending` properties. |
 | `ClobberPolicy` | Controls what happens when output already exists: `OVERWRITE`, `ERROR`, `SKIP`. |
@@ -59,8 +61,8 @@ in `batch.sweep`:
 ```python
 from batch import Job, BatchController, ClobberPolicy
 from batch import SerialExecutor, ParallelExecutor
-from batch import SLURMExecutor, SLURMResources
-from batch import PBSExecutor, PBSResources
+from batch import SchedulerExecutor, JobRequest
+from batch import PBSScheduler, SlurmScheduler, get_scheduler
 from batch import plot_job
 from batch import parse_timing, plot_performance
 from batch.sweep import product_sweep, zip_sweep
@@ -70,15 +72,14 @@ from batch.sweep import product_sweep, zip_sweep
 
 ## Which executor do I want?
 
-All four implement the same `Executor` interface, so switching backends means
+All three implement the same `Executor` interface, so switching backends means
 changing one constructor argument to `BatchController`.
 
 | Executor | Use when | Blocking? |
 |---|---|---|
 | `SerialExecutor` | Debugging or a single job; run one at a time. | Yes — `run()` blocks. |
 | `ParallelExecutor` | A local multi-core workstation; run several jobs at once. | Yes, but jobs run concurrently up to `max_workers`. |
-| `SLURMExecutor` | A SLURM cluster (`sbatch`/`squeue`). | Optional — `run(wait=False)` returns right after submission. |
-| `PBSExecutor` | A PBS Pro cluster such as NCAR Derecho (`qsub`/`qstat`). | Optional — same submit-and-return semantics as SLURM. |
+| `SchedulerExecutor` | A SLURM (`sbatch`/`squeue`) or PBS Pro (`qsub`/`qstat`, e.g. NCAR Derecho) cluster — inject a `SlurmScheduler` or `PBSScheduler` and point it at a per-machine `env_file`. | Optional — `run(wait=False)` returns right after submission. |
 
 `ParallelExecutor` is the default if you don't pass an executor.
 
