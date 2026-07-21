@@ -163,8 +163,14 @@ class TestExecutorFromArgs:
     def test_pbs_returns_scheduler_executor_with_threads(self):
         ex = executor_from_args(
             parse(
-                ["--scheduler", "pbs", "--omp-num-threads", "64",
-                 "--env-file", ENV_FILE]
+                [
+                    "--scheduler",
+                    "pbs",
+                    "--omp-num-threads",
+                    "64",
+                    "--env-file",
+                    ENV_FILE,
+                ]
             )
         )
         assert isinstance(ex, SchedulerExecutor)

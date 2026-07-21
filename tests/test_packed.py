@@ -158,8 +158,14 @@ class TestSubmitPacked:
             return inner(i, n)
 
         submit_packed(
-            3, spy, resources, "slurm", tmp_path,
-            env_file=ENV_FILE, python=PYTHON, dry_run=True,
+            3,
+            spy,
+            resources,
+            "slurm",
+            tmp_path,
+            env_file=ENV_FILE,
+            python=PYTHON,
+            dry_run=True,
         )
         assert seen == [(1, 3), (2, 3), (3, 3)]
 

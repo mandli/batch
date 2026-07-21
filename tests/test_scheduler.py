@@ -129,9 +129,7 @@ class TestSlurmDirectives:
 
     def test_cpus_per_task_splits_node_across_ranks(self):
         # Exclusive 128-core node with 4 ranks: 32 cores per task.
-        req = JobRequest(
-            name="j", log_path="/l", tasks_per_node=4, cpus_per_node=128
-        )
+        req = JobRequest(name="j", log_path="/l", tasks_per_node=4, cpus_per_node=128)
         lines = SlurmScheduler().directives(req)
         assert "#SBATCH --cpus-per-task=32" in lines
 
@@ -188,13 +186,17 @@ class TestNormalizeEnv:
                 if line.startswith("export ")
             }
 
-        assert names(PBSScheduler()) == names(SlurmScheduler()) == {
-            "BATCH_JOB_ID",
-            "BATCH_SUBMIT_DIR",
-            "BATCH_NODEFILE",
-            "BATCH_NNODES",
-            "BATCH_ARRAY_INDEX",
-        }
+        assert (
+            names(PBSScheduler())
+            == names(SlurmScheduler())
+            == {
+                "BATCH_JOB_ID",
+                "BATCH_SUBMIT_DIR",
+                "BATCH_NODEFILE",
+                "BATCH_NNODES",
+                "BATCH_ARRAY_INDEX",
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -318,7 +320,7 @@ class TestRenderJobScript:
 
     def test_import_check_precedes_run(self, request_full):
         script = self._render(PBSScheduler(), request_full)
-        assert script.index('import batch') < script.index("\nexec ")
+        assert script.index("import batch") < script.index("\nexec ")
 
     def test_ends_with_newline(self, request_full):
         assert self._render(PBSScheduler(), request_full).endswith("\n")
@@ -415,9 +417,7 @@ class TestSchedulerExecutor:
         from unittest.mock import patch
 
         job = MockJob(prefix="job_001")
-        with patch(
-            "batch.executors.scheduler.subprocess.run"
-        ) as mock_run:
+        with patch("batch.executors.scheduler.subprocess.run") as mock_run:
             self._executor(PBSScheduler()).submit(job, paths)
         mock_run.assert_not_called()
 
@@ -469,8 +469,6 @@ class TestSchedulerExecutor:
         job = MockJob(prefix="job_001")
         executor = self._executor(SlurmScheduler(), dry_run=False)
         fake = MagicMock(stdout="9988;cluster\n", returncode=0)
-        with patch(
-            "batch.executors.scheduler.subprocess.run", return_value=fake
-        ):
+        with patch("batch.executors.scheduler.subprocess.run", return_value=fake):
             result = executor.submit(job, paths)
         assert result.job_id == "9988"
